@@ -64,11 +64,15 @@ namespace MafiaCore
 
                     if (role == Role.Mafia)
                     {
-                        Mafias.Add((Mafia)playerToModify);
+                        Mafia mafia = new Mafia(playerToModify);
+                        Mafias.Add(mafia);
+                        PlayerMapping[playerToModify.Id] = mafia;
                     }
                     if (role == Role.Doctor)
                     {
-                        Doctors.Add((Doctor)playerToModify);
+                        Doctor doctor = new Doctor(playerToModify);
+                        Doctors.Add(doctor);
+                        PlayerMapping[playerToModify.Id] = doctor;
                     }
                 }
             }
@@ -160,12 +164,12 @@ namespace MafiaCore
 
             if (playerToEliminate.Role == Role.Mafia)
             {
-                Mafias.Remove(playerToEliminate);
+                Mafias.Remove((Mafia)playerToEliminate);
                 return;
             }
             if (playerToEliminate.Role == Role.Doctor)
             {
-                Doctors.Remove(playerToEliminate);
+                Doctors.Remove((Doctor)playerToEliminate);
             }
         }
 
@@ -176,7 +180,7 @@ namespace MafiaCore
 
         internal bool AllCivilliansKilled()
         {
-            return ActivePlayers.Where(player => player.Role != Role.Mafia).Count > 0;
+            return ActivePlayers.Where(player => player.Role != Role.Mafia).ToList().Count > 0;
         }
 
         private void ChangeGameState()
