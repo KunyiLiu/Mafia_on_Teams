@@ -18,5 +18,10 @@ namespace MafiaCore.Players
         {
 
         }
+
+        public Mafia(Player player) : base (player)
+        {
+
+        }
     }
 }

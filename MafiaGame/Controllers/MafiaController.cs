@@ -50,6 +50,7 @@ namespace MafiaGame.Controllers
         public ActionResult AddPlayer(IFormCollection collection)
         {
             // Add player to game
+            return null;
         }
 
         // GET: Mafia/Edit/5

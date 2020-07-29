@@ -11,6 +11,11 @@ namespace MafiaCore.Players
 
         }
 
+        public Villager(Player player) : base(player)
+        {
+
+        }
+
         public override void DoAction(List<Player> activePlayers)
         {
             // Villager does nothing

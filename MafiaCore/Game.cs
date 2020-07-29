@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MafiaCore.Players;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -51,6 +52,7 @@ namespace MafiaCore
                 for (int i = 0; i < RolesToAssign[role]; i++)
                 {
                     Player playerToModify = inactivePlayers[random.Next(inactivePlayers.Count)];
+
                     playerToModify.Role = role;
                     playerToModify.Active = true;
                     ActivePlayers.Add(playerToModify);
