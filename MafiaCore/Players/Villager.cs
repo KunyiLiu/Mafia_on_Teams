@@ -16,7 +16,7 @@ namespace MafiaCore.Players
 
         }
 
-        public override void DoAction(List<Player> activePlayers)
+        public override void DoAction(HashSet<Player> activePlayers)
         {
             // Villager does nothing
         }
