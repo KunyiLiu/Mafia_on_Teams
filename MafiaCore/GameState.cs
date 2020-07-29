@@ -4,7 +4,7 @@ using System.Text;
 
 namespace MafiaCore
 {
-    public enum State
+    public enum GameState
     {
         Unassigned,
         Night,

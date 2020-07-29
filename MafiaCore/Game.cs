@@ -8,9 +8,9 @@ namespace MafiaCore
     {
         public int NumPlayers { get; set; }
 
-        public State CurrentState { get; set; }
+        public GameState CurrentState { get; set; }
 
-        public HashSet<int> ActivePlayers { get; set; }
+        public HashSet<Player> ActivePlayers { get; set; }
 
         public Dictionary<int, Player> PlayerMapping { get; set; }
 
@@ -18,9 +18,9 @@ namespace MafiaCore
 
         public Game()
         {
-            CurrentState = State.Unassigned;
+            CurrentState = GameState.Unassigned;
             NumPlayers = 0;
-            ActivePlayers = new HashSet<int>();
+            ActivePlayers = new HashSet<Player>();
             PlayerMapping = new Dictionary<int, Player>();
             RolesToAssign = new Dictionary<Role, int>
             {
@@ -53,7 +53,7 @@ namespace MafiaCore
                     Player playerToModify = inactivePlayers[random.Next(inactivePlayers.Count)];
                     playerToModify.Role = role;
                     playerToModify.Active = true;
-                    ActivePlayers.Add(playerToModify.Id);
+                    ActivePlayers.Add(playerToModify);
                     inactivePlayers.Remove(playerToModify);
                 }
             }
@@ -62,10 +62,26 @@ namespace MafiaCore
             {
                 player.Role = Role.Civilian;
                 player.Active = true;
-                ActivePlayers.Add(player.Id);
+                ActivePlayers.Add(player);
             }
 
-            CurrentState = State.Night;
+            CurrentState = GameState.Night;
+        }
+
+        public void ExecuteNightPhase()
+        {
+            foreach (Player player in ActivePlayers)
+            {
+                if (player.Role != Role.Civilian)
+                {
+                    player.State = PlayerState.WaitingForPlayerInput;
+                }
+            }
+        }
+
+        public void ExecuteVotingPhase()
+        {
+
         }
 
         public void SerializeToDatabase()

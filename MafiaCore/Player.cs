@@ -36,6 +36,14 @@ namespace MafiaCore
         }
 
         /// <summary>
+        /// State of the current player, whether waiting for input or game to continue
+        /// </summary>
+        public PlayerState State
+        {
+            get; set;
+        }
+
+        /// <summary>
         /// The Teams ID of the assigned target the player chose
         /// </summary>
         public int Target
