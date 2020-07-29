@@ -68,11 +68,16 @@ namespace MafiaCore
                         Mafias.Add(mafia);
                         PlayerMapping[playerToModify.Id] = mafia;
                     }
-                    if (role == Role.Doctor)
+                    else if (role == Role.Doctor)
                     {
                         Doctor doctor = new Doctor(playerToModify);
                         Doctors.Add(doctor);
                         PlayerMapping[playerToModify.Id] = doctor;
+                    }
+                    else 
+                    {
+                        Villager villager = new Villager(playerToModify);
+                        PlayerMapping[playerToModify.Id] = villager;
                     }
                 }
             }
@@ -109,7 +114,19 @@ namespace MafiaCore
 
         public void ExecuteVotingPhase()
         {
+            int playerIdToEliminate = GetVotingResult();
+            EliminatePlayer(PlayerMapping[playerIdToEliminate]);
+            ChangeGameState();
+        }
 
+        public void ExecuteMafiasWonPhase()
+        {
+            // TODO: show mafias won and end the game
+        }
+
+        public void ExecuteMafiasLostPhase()
+        {
+            // TODO: show mafias lost and end the game
         }
 
         public void SerializeToDatabase()
@@ -178,25 +195,34 @@ namespace MafiaCore
             return Mafias.Count > 0;
         }
 
-        internal bool AllCivilliansKilled()
+        internal bool AllCivilliansEliminated()
         {
             return ActivePlayers.Where(player => player.Role != Role.Mafia).ToList().Count > 0;
         }
 
+        // After Night and Voting phases, change to the appropriate game state
         private void ChangeGameState()
         {
             if (AllMafiasCaught())
             {
                 this.CurrentState = GameState.MafiasLost;
             }
-            else if (AllCivilliansKilled())
+            else if (AllCivilliansEliminated())
             {
                 this.CurrentState = GameState.MafiasWon;
             }
-            else
+            else // cycle between night and voting phases
             {
-                this.CurrentState = GameState.Voting;
+                this.CurrentState = this.CurrentState == GameState.Night
+                    ? GameState.Voting
+                    : GameState.Night;
             }
+        }
+
+         // TODO : implement this method
+        private int GetVotingResult()
+        {
+            return 0;
         }
     }
 }
