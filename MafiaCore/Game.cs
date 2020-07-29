@@ -31,7 +31,7 @@ namespace MafiaCore
             {
                 { Role.Doctor, 1 },
                 { Role.Mafia, 1 },
-                { Role.Sheriff, 1 }
+                //{ Role.Sheriff, 1 }
             };
         }
 
@@ -59,7 +59,6 @@ namespace MafiaCore
 
                     playerToModify.Role = role;
                     playerToModify.Active = true;
-                    ActivePlayers.Add(playerToModify);
                     inactivePlayers.Remove(playerToModify);
 
                     if (role == Role.Mafia)
@@ -67,17 +66,14 @@ namespace MafiaCore
                         Mafia mafia = new Mafia(playerToModify);
                         Mafias.Add(mafia);
                         PlayerMapping[playerToModify.Id] = mafia;
+                        ActivePlayers.Add(mafia);
                     }
                     else if (role == Role.Doctor)
                     {
                         Doctor doctor = new Doctor(playerToModify);
                         Doctors.Add(doctor);
                         PlayerMapping[playerToModify.Id] = doctor;
-                    }
-                    else 
-                    {
-                        Villager villager = new Villager(playerToModify);
-                        PlayerMapping[playerToModify.Id] = villager;
+                        ActivePlayers.Add(doctor);
                     }
                 }
             }
@@ -86,7 +82,8 @@ namespace MafiaCore
             {
                 player.Role = Role.Civilian;
                 player.Active = true;
-                ActivePlayers.Add(player);
+                Villager villager = new Villager(player);
+                ActivePlayers.Add(villager);
             }
 
             CurrentState = GameState.Night;
