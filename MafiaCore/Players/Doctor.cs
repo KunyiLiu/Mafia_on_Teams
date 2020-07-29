@@ -19,6 +19,11 @@ namespace MafiaCore.Players
 
         }
 
+        public Doctor(Player player) : base(player)
+        {
+
+        }
+
         public override void DoAction(List<Player> activePlayers)
         {
             foreach (Player player in activePlayers)

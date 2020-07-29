@@ -54,6 +54,16 @@ namespace MafiaCore.Players
             Name = name;
         }
 
+        public Player(Player player)
+        {
+            Id = player.Id;
+            Name = player.Name;
+            Role = player.Role;
+            Active = player.Active;
+            State = player.State;
+            Vote = player.Vote;
+        }
+
         public virtual void DoAction(List<Player> activePlayers)
         {
             // Generic player, aka civilian will do nothing
