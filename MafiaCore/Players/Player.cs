@@ -64,7 +64,7 @@ namespace MafiaCore.Players
             Vote = player.Vote;
         }
 
-        public virtual void DoAction(List<Player> activePlayers)
+        public virtual void DoAction(HashSet<Player> activePlayers)
         {
             // Generic player, aka civilian will do nothing
         }

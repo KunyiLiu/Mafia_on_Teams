@@ -23,5 +23,10 @@ namespace MafiaCore.Players
         {
 
         }
+
+        public override void DoAction(HashSet<Player> activePlayers)
+        {
+            // with current logic, mafia also doesn't do anything
+        }
     }
 }
