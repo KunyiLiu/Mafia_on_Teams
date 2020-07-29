@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace MafiaCore
+namespace MafiaCore.Players
 {
     public class Player
     {
@@ -43,10 +43,7 @@ namespace MafiaCore
             get; set;
         }
 
-        /// <summary>
-        /// The Teams ID of the assigned target the player chose
-        /// </summary>
-        public int Target
+        public int Vote
         {
             get; set;
         }
@@ -55,6 +52,11 @@ namespace MafiaCore
         {
             Id = id;
             Name = name;
+        }
+
+        public virtual void DoAction(List<Player> activePlayers)
+        {
+            // Generic player, aka civilian will do nothing
         }
     }
 }
