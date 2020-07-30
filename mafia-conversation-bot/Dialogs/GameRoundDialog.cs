@@ -6,9 +6,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MafiaCore.Players;
+using AdaptiveCards;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Dialogs.Choices;
+using Microsoft.Bot.Builder.Teams;
+using Microsoft.Bot.Connector.Authentication;
+using Microsoft.Bot.Schema;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.BotBuilderSamples
 {
@@ -32,6 +39,7 @@ namespace Microsoft.BotBuilderSamples
                     NightVotingStepAsync,
                     NightValidationStepAsync,
                     DayVotingStepAsync,
+                    DayValidationStepAsync,
                     LoopStepAsync,
                 }));
 
@@ -42,21 +50,24 @@ namespace Microsoft.BotBuilderSamples
             WaterfallStepContext stepContext,
             CancellationToken cancellationToken)
         {
-            var _livingPeople = stepContext.Options as Dictionary<string, string> ?? new Dictionary<string, string>();
+            var _livingPeople = stepContext.Options as Dictionary<string, Player>;
             stepContext.Values[currentAttendants] = _livingPeople;
+            await stepContext.Context.SendActivityAsync("It's night time.");
 
             // Create the list of options to choose from.
             var options = _livingPeople.Keys.ToList();
             options.Add(NoneOption);
 
+            var activity = (Activity)MessageFactory.Text("Who you want to kill?");
             var promptOptions = new PromptOptions
             {
-                Prompt = MessageFactory.Text("Who you want to kill"),
+                Prompt = activity,
                 RetryPrompt = MessageFactory.Text("Please choose an option from the list."),
                 Choices = ChoiceFactory.ToChoices(options),
             };
 
             // TODO: Prompt the user for a choice to Mafia Group.
+            // await PromptWithAdaptiveCardAsync(stepContext, options, cancellationToken);
             return await stepContext.PromptAsync(nameof(ChoicePrompt), promptOptions, cancellationToken);
         }
 
@@ -91,7 +102,7 @@ namespace Microsoft.BotBuilderSamples
             var killed = (string)stepContext.Result;
             var _livingPeople = stepContext.Values[currentAttendants] as Dictionary<string, string>;
 
-            await stepContext.Context.SendActivityAsync("Last Night, " + killed + " was killed.");
+            await stepContext.Context.SendActivityAsync("It's daytime now. Last Night, " + killed + " was killed.");
 
             // Create the list of options to choose from.
             var options = _livingPeople.Keys.ToList();
@@ -109,8 +120,7 @@ namespace Microsoft.BotBuilderSamples
             return await stepContext.PromptAsync(nameof(ChoicePrompt), promptOptions, cancellationToken);
         }
 
-
-        private async Task<DialogTurnResult> LoopStepAsync(
+        private async Task<DialogTurnResult> DayValidationStepAsync(
             WaterfallStepContext stepContext,
             CancellationToken cancellationToken)
         {
@@ -119,21 +129,32 @@ namespace Microsoft.BotBuilderSamples
             var choice = (FoundChoice)stepContext.Result;
             var done = choice.Value == DoneOption;
 
-            if (!done || choice.Value != NoneOption)
-            {
-                // If they chose a company, add it to the list.
-                await stepContext.Context.SendActivityAsync("You decided to vote out " + choice.Value);
-                _livingPeople.Remove(choice.Value);
-            }
-
-            var livingCivilianCount = GetLivingCivilianCount(_livingPeople);
-            var livingMafia = GetLivingMafiaCount(_livingPeople);
             if (done)
             {
                 // If they're done, exit and return their list.
                 return await stepContext.EndDialogAsync("Manually End", cancellationToken);
             }
-            else if (livingCivilianCount == 0)
+
+            await stepContext.Context.SendActivityAsync("You decided to vote out " + choice.Value);
+            if (choice.Value != NoneOption)
+            {
+                _livingPeople.Remove(choice.Value);
+            }
+            stepContext.Values[currentAttendants] = _livingPeople;
+            return await stepContext.NextAsync(null, cancellationToken);
+        }
+
+            private async Task<DialogTurnResult> LoopStepAsync(
+            WaterfallStepContext stepContext,
+            CancellationToken cancellationToken)
+        {
+            // Retrieve their selection list, the choice they made, and whether they chose to finish.
+            var _livingPeople = stepContext.Values[currentAttendants] as Dictionary<string, string>;
+
+            var livingCivilianCount = GetLivingCivilianCount(_livingPeople);
+            var livingMafia = GetLivingMafiaCount(_livingPeople);
+
+            if (livingCivilianCount <= livingMafia)
             {
                 return await stepContext.EndDialogAsync("Mafia Win", cancellationToken);
             }
@@ -155,6 +176,66 @@ namespace Microsoft.BotBuilderSamples
         private int GetLivingMafiaCount(Dictionary<string, string> dict)
         {
             return dict.Where(pair => pair.Value == "Mafia").Count();
+        }
+
+        private async Task PromptWithAdaptiveCardAsync(
+            WaterfallStepContext stepContext,
+            List<string> choices,
+            CancellationToken cancellationToken)
+        {
+            // Create card
+            var card = new AdaptiveCard(new AdaptiveSchemaVersion(1, 0))
+            {
+                // Use LINQ to turn the choices into submit actions
+                Actions = choices.Select(choice => new AdaptiveSubmitAction
+                {
+                    Title = choice,
+                    Data = choice,  // This will be a string
+                }).ToList<AdaptiveAction>(),
+            };
+            // Prompt
+            var activity = (Activity)MessageFactory.Attachment(new Attachment
+            {
+                ContentType = AdaptiveCard.ContentType,
+                // Convert the AdaptiveCard to a JObject
+                Content = JObject.FromObject(card),
+            });
+            activity.ReplyToId = stepContext.Context.Activity.Id;
+
+            var _appId = "e0de0d3f-8ed6-47dc-afa7-caebdd9c6f43";
+            var teamsChannelId = stepContext.Context.Activity.TeamsGetChannelId();
+            var serviceUrl = stepContext.Context.Activity.ServiceUrl;
+            var credentials = new MicrosoftAppCredentials(_appId, "OX~jD7eP2E~3l7sdMK-Q84.SdL4GvbSKq~");
+            ConversationReference conversationReference = null;
+
+            var teamMember = await TeamsInfo.GetMemberAsync(stepContext.Context, stepContext.Context.Activity.From.Id, cancellationToken);
+            var conversationParameters = new ConversationParameters
+            {
+                IsGroup = false,
+                Bot = stepContext.Context.Activity.Recipient,
+                Members = new ChannelAccount[] { teamMember },
+                TenantId = stepContext.Context.Activity.Conversation.TenantId,
+            };
+
+            await ((BotFrameworkAdapter)stepContext.Context.Adapter).CreateConversationAsync(
+                teamsChannelId,
+                serviceUrl,
+                credentials,
+                conversationParameters,
+                async (t1, c1) =>
+                {
+                    conversationReference = t1.Activity.GetConversationReference();
+                    await ((BotFrameworkAdapter)stepContext.Context.Adapter).ContinueConversationAsync(
+                        _appId,
+                        conversationReference,
+                        async (t2, c2) =>
+                        {
+                            await t2.SendActivityAsync(activity, c2);
+                        },
+                        cancellationToken);
+                },
+                cancellationToken);
+
         }
     }
 }
