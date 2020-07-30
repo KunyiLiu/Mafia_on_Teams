@@ -195,7 +195,7 @@ namespace MafiaCore
 
         internal bool AllCivilliansEliminated()
         {
-            return ActivePlayers.Where(player => player.Role != Role.Mafia).ToList().Count == 0;
+            return Mafias.Count >= ActivePlayers.Where(player => player.Role != Role.Mafia).ToList().Count;
         }
 
         // After Night and Voting phases, change to the appropriate game state
