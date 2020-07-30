@@ -86,6 +86,7 @@ namespace MafiaCore
                 ActivePlayers.Add(villager);
             }
 
+            ShowRolesToPlayers();
             CurrentState = GameState.Night;
         }
 
@@ -189,12 +190,12 @@ namespace MafiaCore
 
         internal bool AllMafiasCaught()
         {
-            return Mafias.Count > 0;
+            return Mafias.Count == 0;
         }
 
         internal bool AllCivilliansEliminated()
         {
-            return ActivePlayers.Where(player => player.Role != Role.Mafia).ToList().Count > 0;
+            return ActivePlayers.Where(player => player.Role != Role.Mafia).ToList().Count == 0;
         }
 
         // After Night and Voting phases, change to the appropriate game state
@@ -220,6 +221,12 @@ namespace MafiaCore
         private int GetVotingResult()
         {
             return 0;
+        }
+
+        // TODO: call this function after roles have been assigned to relay information to players
+        private void ShowRolesToPlayers()
+        {
+
         }
     }
 }
