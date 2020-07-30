@@ -123,11 +123,11 @@ namespace MafiaCore
         {
             int numTotalPlayers = PlayerMapping.Count;
             // If less than 8 players, just have 1 mafia and 1 doctor
-            if (numTotalPlayers < 8)
+            if (numTotalPlayers < 4)
             {
                 return;
             }
-            int numMafiasAndDoctors = numTotalPlayers % 4;
+            int numMafiasAndDoctors = numTotalPlayers / 3;
             RolesToAssign[Role.Doctor] = numMafiasAndDoctors;
             RolesToAssign[Role.Mafia] = numMafiasAndDoctors;
         }
