@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MafiaCore.Players;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Dialogs.Choices;
@@ -42,7 +43,7 @@ namespace Microsoft.BotBuilderSamples
             WaterfallStepContext stepContext,
             CancellationToken cancellationToken)
         {
-            var _livingPeople = stepContext.Options as Dictionary<string, string> ?? new Dictionary<string, string>();
+            var _livingPeople = stepContext.Options as Dictionary<string, Player>;
             stepContext.Values[currentAttendants] = _livingPeople;
 
             // Create the list of options to choose from.
