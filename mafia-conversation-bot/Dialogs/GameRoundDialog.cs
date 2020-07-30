@@ -58,7 +58,6 @@ namespace Microsoft.BotBuilderSamples
             options.Add(NoneOption);
 
             var activity = (Activity)MessageFactory.Text("Who you want to kill?");
-            activity.ReplyToId = "1596124474995";
             var promptOptions = new PromptOptions
             {
                 Prompt = activity,
