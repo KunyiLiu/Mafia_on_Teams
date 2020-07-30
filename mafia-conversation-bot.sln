@@ -7,6 +7,9 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MafiaCore", "MafiaCore\MafiaCore.csproj", "{6BF4AEC4-009D-4D32-BF6D-0FAECC0AB988}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MafiaGameBot", "mafia-conversation-bot\MafiaGameBot.csproj", "{D1910900-EAC1-4EFB-8904-70DFE1D7E1D3}"
+	ProjectSection(ProjectDependencies) = postProject
+		{6BF4AEC4-009D-4D32-BF6D-0FAECC0AB988} = {6BF4AEC4-009D-4D32-BF6D-0FAECC0AB988}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

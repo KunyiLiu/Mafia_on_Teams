@@ -3,6 +3,7 @@
 
 namespace Microsoft.BotBuilderSamples
 {
+    using MafiaCore.Players;
     using System.Collections.Generic;
 
     /// <summary>Contains information about a user.</summary>
@@ -11,6 +12,6 @@ namespace Microsoft.BotBuilderSamples
         public int PlayerCount { get; set; }
 
         // The list of companies the user wants to review.
-        public Dictionary<string, string> Players { get; set; } = new Dictionary<string, string>();
+        public Dictionary<string, Player> Players { get; set; } = new Dictionary<string, Player>();
     }
 }

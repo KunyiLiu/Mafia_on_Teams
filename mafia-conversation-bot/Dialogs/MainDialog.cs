@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MafiaCore;
+using MafiaCore.Players;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
@@ -25,6 +27,8 @@ namespace Microsoft.BotBuilderSamples
         protected readonly ILogger Logger;
         private readonly string _appId;
         private readonly string _appPassword;
+
+        public Game MafiaGame { get; set; }
 
         // Define value names for values tracked inside the dialogs.
         private const string UserInfo = "value-userInfo";
@@ -52,7 +56,7 @@ namespace Microsoft.BotBuilderSamples
         {
             await stepContext.Context.SendActivityAsync("The game starts, assigning roles");
 
-            var members = await GetPagedMembers(stepContext.Context, cancellationToken);
+            List<TeamsChannelAccount> members = await GetPagedMembers(stepContext.Context, cancellationToken);
             // TODO: update valid range
             if (members.Count <= 0)
             {
@@ -61,14 +65,13 @@ namespace Microsoft.BotBuilderSamples
             }
             await MessageRoleToAllMembersAsync(stepContext.Context, members, cancellationToken);
 
-            var dict = new Dictionary<string, string> () {
-                { "kunyl", "Civilian" },
-                { "Supratik", "Civilian" },
-                { "Nanhua", "Civilian" },
-                { "Yogesh", "Mafia" }
-            };
+            MafiaGame = new Game();
+            foreach (TeamsChannelAccount player in members)
+            {
+                MafiaGame.AddPlayer(new Player(player.Id, player.Name));
+            }
 
-            var userInfo  = new UserProfile() { PlayerCount = 4,  Players = dict };
+            var userInfo  = new UserProfile() { PlayerCount = 4,  Players = MafiaGame.PlayerMapping };
             // TODO: Create Group Chat for Mafia
             return await stepContext.BeginDialogAsync(nameof(GameRoundDialog), userInfo.Players, cancellationToken);
         }
@@ -90,7 +93,7 @@ namespace Microsoft.BotBuilderSamples
 
         private static async Task<List<TeamsChannelAccount>> GetPagedMembers(ITurnContext turnContext, CancellationToken cancellationToken)
         {
-            var members = new List<TeamsChannelAccount>();
+            List<TeamsChannelAccount> members = new List<TeamsChannelAccount>();
             string continuationToken = null;
 
             do
