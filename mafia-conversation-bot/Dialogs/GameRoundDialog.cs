@@ -55,7 +55,11 @@ namespace Microsoft.BotBuilderSamples
             await stepContext.Context.SendActivityAsync("It's night time.");
 
             // Create the list of options to choose from.
-            var options = _livingPeople.Keys.ToList();
+            List<string> options = new List<string>();
+            foreach (Player player in _livingPeople.Values)
+            {
+                options.Add(player.Name);
+            }
             options.Add(NoneOption);
 
             var activity = (Activity)MessageFactory.Text("Who you want to kill?");
