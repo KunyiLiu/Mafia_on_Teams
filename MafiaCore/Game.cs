@@ -47,6 +47,8 @@ namespace MafiaCore
 
         public void InitializeGameBoard()
         {
+            FillRolesToAssign();
+
             Random random = new Random();
             List<Player> inactivePlayers = PlayerMapping.Select(p => p.Value).ToList();
 
@@ -115,6 +117,19 @@ namespace MafiaCore
             string playerIdToEliminate = GetVotingResult();
             EliminatePlayer(PlayerMapping[playerIdToEliminate]);
             ChangeGameState();
+        }
+
+        private void FillRolesToAssign()
+        {
+            int numTotalPlayers = PlayerMapping.Count;
+            // If less than 8 players, just have 1 mafia and 1 doctor
+            if (numTotalPlayers < 4)
+            {
+                return;
+            }
+            int numMafiasAndDoctors = numTotalPlayers / 3;
+            RolesToAssign[Role.Doctor] = numMafiasAndDoctors;
+            RolesToAssign[Role.Mafia] = numMafiasAndDoctors;
         }
 
         public void ExecuteMafiasWonPhase()
@@ -195,7 +210,7 @@ namespace MafiaCore
 
         internal bool AllCivilliansEliminated()
         {
-            return ActivePlayers.Where(player => player.Role != Role.Mafia).ToList().Count == 0;
+            return Mafias.Count >= ActivePlayers.Where(player => player.Role != Role.Mafia).ToList().Count;
         }
 
         // After Night and Voting phases, change to the appropriate game state
