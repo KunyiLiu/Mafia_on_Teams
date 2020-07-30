@@ -47,7 +47,7 @@ namespace MafiaCore
 
         public void InitializeGameBoard()
         {
-            CreateRolesToAssign();
+            FillRolesToAssign();
 
             Random random = new Random();
             List<Player> inactivePlayers = PlayerMapping.Select(p => p.Value).ToList();
@@ -119,7 +119,7 @@ namespace MafiaCore
             ChangeGameState();
         }
 
-        private void CreateRolesToAssign()
+        private void FillRolesToAssign()
         {
             int numTotalPlayers = PlayerMapping.Count;
             // If less than 8 players, just have 1 mafia and 1 doctor
