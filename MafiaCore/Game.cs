@@ -74,9 +74,10 @@ namespace MafiaCore
                                 Mafias.Add(mafia);
                                 PlayerMapping[p.Id] = mafia;
                                 ActivePlayers.Add(mafia);
-                                continue;
+                                break;
                             }
                         }
+                        continue;
                     }
                     Player playerToModify = inactivePlayers[random.Next(inactivePlayers.Count)];
 
