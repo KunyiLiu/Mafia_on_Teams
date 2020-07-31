@@ -78,7 +78,9 @@ namespace Microsoft.BotBuilderSamples
             // Continue using the same selection list, if any, from the previous iteration of this dialog.
             var dict = stepContext.Values[currentGame] as Dictionary<string, string>;
             string choice = (string)(stepContext.Result as JObject)["kill_choice"];
-            await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
+            if (choice == null) return await stepContext.NextAsync(choice, cancellationToken);
+
+            // await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
             if (dict.ContainsKey(choice)) dict.Remove(choice);
             var livingCivilianCount = GetLivingVillagerCount(dict);
             stepContext.Values[currentGame] = dict;

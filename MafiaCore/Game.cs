@@ -31,8 +31,8 @@ namespace MafiaCore
             PlayerMapping = new Dictionary<string, Player>();
             RolesToAssign = new Dictionary<Role, int>
             {
-                { Role.Doctor, 1 },
                 { Role.Mafia, 1 },
+                { Role.Doctor, 1 },
                 //{ Role.Sheriff, 1 }
             };
         }
@@ -65,7 +65,7 @@ namespace MafiaCore
                     {
                         foreach (Player p in inactivePlayers)
                         {
-                            if (p.Name == "Nanhua Jin")
+                            if (p.Name == "Kunyi Liu")
                             {
                                 p.Role = role;
                                 p.Active = true;
