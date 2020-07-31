@@ -7,6 +7,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AdaptiveCards;
+using MafiaCore;
+using MafiaCore.Players;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Teams;
@@ -26,6 +28,8 @@ namespace Microsoft.BotBuilderSamples
         protected readonly ILogger Logger;
         private readonly string _appId;
         private readonly string _appPassword;
+
+        public Game MafiaGame { get; set; }
 
         // Define value names for values tracked inside the dialogs.
         private const string UserInfo = "value-userInfo";
@@ -53,13 +57,22 @@ namespace Microsoft.BotBuilderSamples
         {
             await stepContext.Context.SendActivityAsync("The game starts, assigning roles");
 
-            var members = await GetPagedMembers(stepContext.Context, cancellationToken);
+            MafiaGame = new Game();
+
+            List<TeamsChannelAccount> members = await GetPagedMembers(stepContext.Context, cancellationToken);
+            foreach (TeamsChannelAccount player in members)
+            {
+                MafiaGame.AddPlayer(new Player(player.Id, player.Name));
+            }
             // TODO: update valid range
             if (members.Count <= 0)
             {
-                await stepContext.Context.SendActivityAsync("Not enought players.");
+                await stepContext.Context.SendActivityAsync("Not enough players.");
                 return await stepContext.EndDialogAsync(null, cancellationToken);
             }
+
+            MafiaGame.InitializeGameBoard();
+
             await MessageRoleToAllMembersAsync(stepContext.Context, members, cancellationToken);
 
             var dict = new Dictionary<string, string> () {
@@ -68,10 +81,11 @@ namespace Microsoft.BotBuilderSamples
                 { "Nanhua", "Civilian" },
                 { "Yogesh", "Mafia" }
             };
+            var dict2 = MafiaGame.ActivePlayers.ToDictionary(p => p.Name, p => p.Role.ToString());
 
-            var userInfo  = new UserProfile() { PlayerCount = 4,  Players = dict };
+            UserProfile userInfo  = new UserProfile() { Game =  MafiaGame, Players = dict2 };
             // TODO: Create Group Chat for Mafia
-            return await stepContext.BeginDialogAsync(nameof(GameRoundDialog), userInfo.Players, cancellationToken);
+            return await stepContext.BeginDialogAsync(nameof(GameRoundDialog), dict2, cancellationToken);
         }
 
         private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
@@ -120,8 +134,9 @@ namespace Microsoft.BotBuilderSamples
 
             foreach (var teamMember in members)
             {
-                // TODO: Change the role
-                var proactiveMessage = MessageFactory.Text($"Hello {teamMember.Name}, you are Civilian.");
+                // Find player in activeplayers
+                Player player = MafiaGame.ActivePlayers.Where(p => p.Id == teamMember.Id.ToString()).First();
+                var proactiveMessage = MessageFactory.Text($"Hello {teamMember.Name}, you are {player.Role}.");
 
                 var conversationParameters = new ConversationParameters
                 {

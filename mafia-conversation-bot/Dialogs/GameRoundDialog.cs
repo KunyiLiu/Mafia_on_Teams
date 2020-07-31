@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AdaptiveCards;
 using Bot.AdaptiveCard.Prompt;
+using MafiaCore;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Dialogs.Choices;
@@ -54,7 +55,7 @@ namespace Microsoft.BotBuilderSamples
             WaterfallStepContext stepContext,
             CancellationToken cancellationToken)
         {
-            var _livingPeople = stepContext.Options as Dictionary<string, string> ?? new Dictionary<string, string>();
+            var _livingPeople = stepContext.Options as Dictionary<string, string>;
             stepContext.Values[currentAttendants] = _livingPeople;
             await stepContext.Context.SendActivityAsync("It's night time.");
 

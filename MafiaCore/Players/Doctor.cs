@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Collections.Generic;
 
 namespace MafiaCore.Players
 {
@@ -9,12 +7,12 @@ namespace MafiaCore.Players
         /// <summary>
         /// The Teams ID of the assigned target the player chose to kill
         /// </summary>
-        public int Target
+        public string Target
         {
             get; set;
         }
 
-        public Doctor(int id, string name) : base(id, name)
+        public Doctor(string id, string name) : base(id, name)
         {
 
         }
@@ -33,7 +31,7 @@ namespace MafiaCore.Players
                     Mafia mafia = (Mafia)player;
                     if (mafia.Target == Target)
                     {
-                        mafia.Target = 0; // Reset Mafia target to 0 to nullify the kill
+                        mafia.Target = null; // Reset Mafia target to 0 to nullify the kill
                     }
                 }
             }

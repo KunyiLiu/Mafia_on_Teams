@@ -17,7 +17,7 @@ namespace MafiaCore
 
         public HashSet<Doctor> Doctors { get; set; }
 
-        public Dictionary<int, Player> PlayerMapping { get; set; }
+        public Dictionary<string, Player> PlayerMapping { get; set; }
 
         public Dictionary<Role, int> RolesToAssign { get; set; }
 
@@ -26,7 +26,9 @@ namespace MafiaCore
             CurrentState = GameState.Unassigned;
             NumPlayers = 0;
             ActivePlayers = new HashSet<Player>();
-            PlayerMapping = new Dictionary<int, Player>();
+            Doctors = new HashSet<Doctor>();
+            Mafias = new HashSet<Mafia>();
+            PlayerMapping = new Dictionary<string, Player>();
             RolesToAssign = new Dictionary<Role, int>
             {
                 { Role.Doctor, 1 },
@@ -47,6 +49,8 @@ namespace MafiaCore
 
         public void InitializeGameBoard()
         {
+            FillRolesToAssign();
+
             Random random = new Random();
             List<Player> inactivePlayers = PlayerMapping.Select(p => p.Value).ToList();
 
@@ -112,9 +116,22 @@ namespace MafiaCore
 
         public void ExecuteVotingPhase()
         {
-            int playerIdToEliminate = GetVotingResult();
+            string playerIdToEliminate = GetVotingResult();
             EliminatePlayer(PlayerMapping[playerIdToEliminate]);
             ChangeGameState();
+        }
+
+        private void FillRolesToAssign()
+        {
+            int numTotalPlayers = PlayerMapping.Count;
+            // If less than 8 players, just have 1 mafia and 1 doctor
+            if (numTotalPlayers < 4)
+            {
+                return;
+            }
+            int numMafiasAndDoctors = numTotalPlayers / 3;
+            RolesToAssign[Role.Doctor] = numMafiasAndDoctors;
+            RolesToAssign[Role.Mafia] = numMafiasAndDoctors;
         }
 
         public void ExecuteMafiasWonPhase()
@@ -152,8 +169,8 @@ namespace MafiaCore
                 return null;
             }
             // All mafias have the same target
-            int mafiasTarget = Mafias.First().Target;
-            if (mafiasTarget == 0)
+            string mafiasTarget = Mafias.First().Target;
+            if (string.IsNullOrEmpty(mafiasTarget))
             {
                 return null;
             }
@@ -169,7 +186,7 @@ namespace MafiaCore
                 // TODO: show no one killed
                 return;
             }
-             // TODO: show player killed
+            // TODO: show player killed
         }
 
         private void EliminatePlayer(Player playerToEliminate)
@@ -195,7 +212,7 @@ namespace MafiaCore
 
         internal bool AllCivilliansEliminated()
         {
-            return ActivePlayers.Where(player => player.Role != Role.Mafia).ToList().Count == 0;
+            return Mafias.Count >= ActivePlayers.Where(player => player.Role != Role.Mafia).ToList().Count;
         }
 
         // After Night and Voting phases, change to the appropriate game state
@@ -217,10 +234,10 @@ namespace MafiaCore
             }
         }
 
-         // TODO : implement this method
-        private int GetVotingResult()
+        // TODO : implement this method
+        private string GetVotingResult()
         {
-            return 0;
+            return null;
         }
 
         // TODO: call this function after roles have been assigned to relay information to players

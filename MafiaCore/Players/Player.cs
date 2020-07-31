@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Collections.Generic;
 
 namespace MafiaCore.Players
 {
@@ -14,7 +12,7 @@ namespace MafiaCore.Players
         /// <summary>
         /// The Teams ID of the player
         /// </summary>
-        public int Id
+        public string Id
         {
             get; set;
         }
@@ -48,7 +46,7 @@ namespace MafiaCore.Players
             get; set;
         }
 
-        public Player(int id, string name)
+        public Player(string id, string name)
         {
             Id = id;
             Name = name;
