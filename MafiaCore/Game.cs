@@ -26,6 +26,8 @@ namespace MafiaCore
             CurrentState = GameState.Unassigned;
             NumPlayers = 0;
             ActivePlayers = new HashSet<Player>();
+            Doctors = new HashSet<Doctor>();
+            Mafias = new HashSet<Mafia>();
             PlayerMapping = new Dictionary<string, Player>();
             RolesToAssign = new Dictionary<Role, int>
             {

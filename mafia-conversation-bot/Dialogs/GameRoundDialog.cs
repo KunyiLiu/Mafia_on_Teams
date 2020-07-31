@@ -16,6 +16,7 @@ using Microsoft.Bot.Connector.Authentication;
 using Microsoft.Bot.Schema;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
+using MafiaCore;
 
 namespace Microsoft.BotBuilderSamples
 {
@@ -26,8 +27,13 @@ namespace Microsoft.BotBuilderSamples
         private const string NoneOption = "No one";
 
         // Define value names for values tracked inside the dialogs.
-        private const string currentAttendants = "value-currentPlayers";
+        private const string currentGame = "value-currentGame";
+        private const string conversations = "value-conversations";
         private const string UserInfo = "value-userInfo";
+        private const string contexts = "value-contexts";
+
+        public UserProfile GameData { get; set; }
+        public Game MafiaGame { get; set; }
 
         public GameRoundDialog()
             : base(nameof(GameRoundDialog))
@@ -50,15 +56,23 @@ namespace Microsoft.BotBuilderSamples
             WaterfallStepContext stepContext,
             CancellationToken cancellationToken)
         {
-            var _livingPeople = stepContext.Options as Dictionary<string, Player>;
-            stepContext.Values[currentAttendants] = _livingPeople;
+            UserProfile userProfile = stepContext.Options as UserProfile;
+            GameData = userProfile;
+            MafiaGame = userProfile.Game;
+            stepContext.Values[currentGame] = userProfile.Game;
+            stepContext.Values[conversations] = userProfile.IndividualConversations;
+            stepContext.Values[contexts] = userProfile.Contexts;
             await stepContext.Context.SendActivityAsync("It's night time.");
 
             // Create the list of options to choose from.
-            var options = _livingPeople.Keys.ToList();
+            List<string> options = new List<string>();
+            foreach (Player player in ((Game)stepContext.Values[currentGame]).ActivePlayers)
+            {
+                options.Add(player.Name);
+            }
             options.Add(NoneOption);
 
-            var activity = (Activity)MessageFactory.Text("Who you want to kill?");
+            var activity = MessageFactory.Text("Who you want to kill?");
             var promptOptions = new PromptOptions
             {
                 Prompt = activity,
@@ -77,14 +91,27 @@ namespace Microsoft.BotBuilderSamples
             )
         {
             // Continue using the same selection list, if any, from the previous iteration of this dialog.
-            var dict = stepContext.Values[currentAttendants] as Dictionary<string, string>;
-            var choice = (FoundChoice)stepContext.Result;
+            //Game game = stepContext.Values[currentGame] as Game;
+            var result = stepContext.Result;
+            FoundChoice choice = (FoundChoice)result;
+
 
             await stepContext.Context.SendActivityAsync("You decided to kill " + choice.Value);
-            if (dict.ContainsKey(choice.Value)) dict.Remove(choice.Value);
 
-            var livingCivilianCount = GetLivingCivilianCount(dict);
-            stepContext.Values[currentAttendants] = dict;
+            HashSet<Player> activePlayers = MafiaGame.ActivePlayers;
+
+            foreach (Player player in activePlayers)
+            {
+                if (player is Mafia)
+                {
+                    ((Mafia)player).Target = choice.Value;
+                }
+            }
+
+            // Kill civilian
+
+            // Count living civilians
+            int livingCivilianCount = activePlayers.Where(a => a is Villager).Count();
 
             if (livingCivilianCount > 0)
             {
@@ -100,7 +127,7 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken)
         {
             var killed = (string)stepContext.Result;
-            var _livingPeople = stepContext.Values[currentAttendants] as Dictionary<string, string>;
+            var _livingPeople = stepContext.Values[currentGame] as Dictionary<string, string>;
 
             await stepContext.Context.SendActivityAsync("It's daytime now. Last Night, " + killed + " was killed.");
 
@@ -125,7 +152,7 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken)
         {
             // Retrieve their selection list, the choice they made, and whether they chose to finish.
-            var _livingPeople = stepContext.Values[currentAttendants] as Dictionary<string, string>;
+            var _livingPeople = stepContext.Values[currentGame] as Dictionary<string, string>;
             var choice = (FoundChoice)stepContext.Result;
             var done = choice.Value == DoneOption;
 
@@ -140,7 +167,7 @@ namespace Microsoft.BotBuilderSamples
             {
                 _livingPeople.Remove(choice.Value);
             }
-            stepContext.Values[currentAttendants] = _livingPeople;
+            stepContext.Values[currentGame] = _livingPeople;
             return await stepContext.NextAsync(null, cancellationToken);
         }
 
@@ -149,7 +176,7 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken)
         {
             // Retrieve their selection list, the choice they made, and whether they chose to finish.
-            var _livingPeople = stepContext.Values[currentAttendants] as Dictionary<string, string>;
+            var _livingPeople = stepContext.Values[currentGame] as Dictionary<string, string>;
 
             var livingCivilianCount = GetLivingCivilianCount(_livingPeople);
             var livingMafia = GetLivingMafiaCount(_livingPeople);
