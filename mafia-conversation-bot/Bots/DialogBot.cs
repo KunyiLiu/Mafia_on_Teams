@@ -49,8 +49,8 @@ namespace Microsoft.BotBuilderSamples
         protected override async Task OnMessageActivityAsync(ITurnContext<IMessageActivity> turnContext, CancellationToken cancellationToken)
         {
             turnContext.Activity.RemoveRecipientMention();
-            Logger.LogInformation("Running dialog with Message Activity. Old Id: {0}, new Id: {1}, test: {2}", 
-                turnContext.Activity.ReplyToId, turnContext.Activity.Id, turnContext.Activity.Text);
+            Logger.LogInformation("----------------Running dialog with Message Activity. Old Id: {0}, new Id: {1}, test: {2}-----------", 
+                turnContext.Activity.ReplyToId, turnContext.Activity.Id, turnContext.Activity.Value);
 
             // Run the Dialog with the new message Activity.
             await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>(nameof(DialogState)), cancellationToken);
