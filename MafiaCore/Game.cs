@@ -186,7 +186,7 @@ namespace MafiaCore
                 // TODO: show no one killed
                 return;
             }
-             // TODO: show player killed
+            // TODO: show player killed
         }
 
         private void EliminatePlayer(Player playerToEliminate)
@@ -234,7 +234,7 @@ namespace MafiaCore
             }
         }
 
-         // TODO : implement this method
+        // TODO : implement this method
         private string GetVotingResult()
         {
             return null;

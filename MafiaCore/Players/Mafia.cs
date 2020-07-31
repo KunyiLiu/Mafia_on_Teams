@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Collections.Generic;
 
 namespace MafiaCore.Players
 {
@@ -19,7 +17,7 @@ namespace MafiaCore.Players
 
         }
 
-        public Mafia(Player player) : base (player)
+        public Mafia(Player player) : base(player)
         {
 
         }

@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using MafiaCore.Players;
 using AdaptiveCards;
 using Bot.AdaptiveCard.Prompt;
+using MafiaCore;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Dialogs.Choices;
@@ -61,28 +62,17 @@ namespace Microsoft.BotBuilderSamples
             WaterfallStepContext stepContext,
             CancellationToken cancellationToken)
         {
-            UserProfile userProfile = stepContext.Options as UserProfile;
-            GameData = userProfile;
-            MafiaGame = userProfile.Game;
-            stepContext.Values[currentGame] = userProfile.Game;
-            stepContext.Values[conversations] = userProfile.IndividualConversations;
-            stepContext.Values[contexts] = userProfile.Contexts;
+            var _livingPeople = stepContext.Options as Dictionary<string, string>;
+            stepContext.Values[currentGame] = _livingPeople;
             await stepContext.Context.SendActivityAsync("It's night time.");
 
             // Create the list of options to choose from.
             List<string> options = new List<string>();
-            foreach (Player player in ((Game)stepContext.Values[currentGame]).ActivePlayers)
+            foreach (string playerName in _livingPeople.Keys)
             {
-                options.Add(player.Name);
+                options.Add(playerName);
             }
             options.Add(NoneOption);
-            var activity = MessageFactory.Text("Who you want to kill?");
-            var promptOptions = new PromptOptions
-            {
-                Prompt = activity,
-                RetryPrompt = MessageFactory.Text("Please choose an option from the list."),
-                Choices = ChoiceFactory.ToChoices(options),
-            };
 
             // TODO: Prompt the user for a choice to Mafia Group.
             return await PromptWithAdaptiveCardAsync(stepContext, options, cancellationToken);
@@ -95,32 +85,20 @@ namespace Microsoft.BotBuilderSamples
             )
         {
             // Continue using the same selection list, if any, from the previous iteration of this dialog.
-            HashSet<Player> activePlayers = MafiaGame.ActivePlayers;
-            string choice = (String)(stepContext.Result as JObject)["kill_choice"];
-
-            await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
-            //if (activePlayers.Contains(choice)) activePlayers.Remove(choice);
-
-            foreach (Player player in activePlayers)
-            {
-                if (player is Mafia)
-                {
-                    ((Mafia)player).Target = choice;
-                }
-            }
-
-            // Kill civilian
-
-            // Count living civilians
-            int livingCivilianCount = activePlayers.Where(a => a is Villager).Count();
-
+            var dict = stepContext.Values[currentGame] as Dictionary<string, string>;
+            var choice = (String)(stepContext.Result as JObject)["kill_choice"];
+            // await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
+            if (dict.ContainsKey(choice)) dict.Remove(choice);
+            var livingCivilianCount = GetLivingCivilianCount(dict);
+            stepContext.Values[currentGame] = dict;
             if (livingCivilianCount > 0)
             {
                 return await stepContext.NextAsync(choice, cancellationToken);
-            } else
+            }
+            else
             {
                 return await stepContext.EndDialogAsync("Mafia Win", cancellationToken);
-            }    
+            }
         }
 
         private async Task<DialogTurnResult> DayVotingStepAsync(

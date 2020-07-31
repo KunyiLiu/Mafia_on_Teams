@@ -15,8 +15,7 @@ namespace Microsoft.BotBuilderSamples
         public int PlayerCount { get; set; }
 
         // The list of companies the user wants to review.
-        public Dictionary<string, Player> Players { get; set; } = new Dictionary<string, Player>();
-
+        public Dictionary<string, string> Players { get; set; } = new Dictionary<string, string>();
         public Game Game { get; set; }
 
         // Individual conversations
