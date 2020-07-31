@@ -86,6 +86,9 @@ namespace Microsoft.BotBuilderSamples
 
             var dict = MafiaGame.ActivePlayers.ToDictionary(p => p.Name, p => p.Role.ToString());
 
+            var accessor = _userState.CreateProperty<Dictionary<string, string>>("Mafia-Group");
+            await accessor.SetAsync(stepContext.Context, dict2, cancellationToken);
+
             // TODO: Create Group Chat for Mafia
             return await stepContext.BeginDialogAsync(nameof(GameRoundDialog), dict, cancellationToken);
         }
@@ -176,7 +179,7 @@ namespace Microsoft.BotBuilderSamples
                     cancellationToken);
 
                 conv.Wait();
-                
+
             }
 
             await turnContext.SendActivityAsync(MessageFactory.Text("Roles are assigned. Please don't reveal your identity to others."), cancellationToken);
