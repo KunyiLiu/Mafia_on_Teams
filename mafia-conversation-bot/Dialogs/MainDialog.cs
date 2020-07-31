@@ -111,7 +111,7 @@ namespace Microsoft.BotBuilderSamples
                 }
                 roleToPlayers[roleName].Add(player.Name);
             }
-            Logger.LogInformation("---------Count is {0} =======", roleToPlayers.Count);
+
             await stepContext.Context.SendActivityAsync("Who were the special players?");
             foreach (var pair in roleToPlayers)
             {

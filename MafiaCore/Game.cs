@@ -65,7 +65,7 @@ namespace MafiaCore
                     {
                         foreach (Player p in inactivePlayers)
                         {
-                            if (p.Name == "Kunyi Liu")
+                            if (p.Name == "Nanhua Jin")
                             {
                                 p.Role = role;
                                 p.Active = true;
