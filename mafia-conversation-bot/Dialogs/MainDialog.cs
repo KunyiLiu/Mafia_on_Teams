@@ -6,16 +6,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http.Connections;
+using AdaptiveCards;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Teams;
-using Microsoft.Bot.Connector;
 using Microsoft.Bot.Connector.Authentication;
 using Microsoft.Bot.Schema;
 using Microsoft.Bot.Schema.Teams;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.BotBuilderSamples
 {
@@ -83,7 +84,7 @@ namespace Microsoft.BotBuilderSamples
 
             var accessor = _userState.CreateProperty<UserProfile>(nameof(UserProfile));
             var userInfo = new UserProfile();
-            await accessor.SetAsync(stepContext.Context, userInfo, cancellationToken);
+            // await accessor.SetAsync(stepContext.Context, userInfo, cancellationToken);
 
             return await stepContext.EndDialogAsync(null, cancellationToken);
         }

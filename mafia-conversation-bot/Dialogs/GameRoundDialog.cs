@@ -3,10 +3,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AdaptiveCards;
+using Bot.AdaptiveCard.Prompt;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Dialogs.Choices;
@@ -14,6 +16,7 @@ using Microsoft.Bot.Builder.Teams;
 using Microsoft.Bot.Connector.Authentication;
 using Microsoft.Bot.Schema;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.BotBuilderSamples
@@ -25,6 +28,7 @@ namespace Microsoft.BotBuilderSamples
         private const string NoneOption = "No one";
 
         // Define value names for values tracked inside the dialogs.
+        static string AdaptivePromptId = "adaptive";
         private const string currentAttendants = "value-currentPlayers";
         private const string UserInfo = "value-userInfo";
 
@@ -32,6 +36,7 @@ namespace Microsoft.BotBuilderSamples
             : base(nameof(GameRoundDialog))
         {
             AddDialog(new ChoicePrompt(nameof(ChoicePrompt)));
+            AddDialog(new AdaptiveCardPrompt(AdaptivePromptId));
 
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
                 {
@@ -57,17 +62,9 @@ namespace Microsoft.BotBuilderSamples
             var options = _livingPeople.Keys.ToList();
             options.Add(NoneOption);
 
-            var activity = (Activity)MessageFactory.Text("Who you want to kill?");
-            var promptOptions = new PromptOptions
-            {
-                Prompt = activity,
-                RetryPrompt = MessageFactory.Text("Please choose an option from the list."),
-                Choices = ChoiceFactory.ToChoices(options),
-            };
-
             // TODO: Prompt the user for a choice to Mafia Group.
-            // await PromptWithAdaptiveCardAsync(stepContext, options, cancellationToken);
-            return await stepContext.PromptAsync(nameof(ChoicePrompt), promptOptions, cancellationToken);
+            return await PromptWithAdaptiveCardAsync(stepContext, options, cancellationToken);
+            // return await stepContext.PromptAsync(nameof(ChoicePrompt), promptOptions, cancellationToken);
         }
 
         private async Task<DialogTurnResult> NightValidationStepAsync(
@@ -77,17 +74,17 @@ namespace Microsoft.BotBuilderSamples
         {
             // Continue using the same selection list, if any, from the previous iteration of this dialog.
             var dict = stepContext.Values[currentAttendants] as Dictionary<string, string>;
-            var choice = (FoundChoice)stepContext.Result;
+            var choice = (String)(stepContext.Result as JObject)["kill_choice"];
 
-            await stepContext.Context.SendActivityAsync("You decided to kill " + choice.Value);
-            if (dict.ContainsKey(choice.Value)) dict.Remove(choice.Value);
+            // await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
+            if (dict.ContainsKey(choice)) dict.Remove(choice);
 
             var livingCivilianCount = GetLivingCivilianCount(dict);
             stepContext.Values[currentAttendants] = dict;
 
             if (livingCivilianCount > 0)
             {
-                return await stepContext.NextAsync(choice.Value, cancellationToken);
+                return await stepContext.NextAsync(choice, cancellationToken);
             } else
             {
                 return await stepContext.EndDialogAsync("Mafia Win", cancellationToken);
@@ -177,7 +174,7 @@ namespace Microsoft.BotBuilderSamples
             return dict.Where(pair => pair.Value == "Mafia").Count();
         }
 
-        private async Task PromptWithAdaptiveCardAsync(
+        private async Task<DialogTurnResult> PromptWithAdaptiveCardAsync(
             WaterfallStepContext stepContext,
             List<string> choices,
             CancellationToken cancellationToken)
@@ -185,56 +182,45 @@ namespace Microsoft.BotBuilderSamples
             // Create card
             var card = new AdaptiveCard(new AdaptiveSchemaVersion(1, 0))
             {
-                // Use LINQ to turn the choices into submit actions
-                Actions = choices.Select(choice => new AdaptiveSubmitAction
+                Body = new List<AdaptiveElement>()
                 {
-                    Title = choice,
-                    Data = choice,  // This will be a string
-                }).ToList<AdaptiveAction>(),
+                    new AdaptiveTextBlock()
+                    {
+                        Text = "Who you want to kill? For mafia only",
+                        Weight = AdaptiveTextWeight.Bolder
+                    },
+                    new AdaptiveChoiceSetInput()
+                    {
+                        Id = "kill_choice",
+                        Style = AdaptiveChoiceInputStyle.Expanded,
+                        Choices = choices.Select(choice => new AdaptiveChoice
+                        {
+                            Title = choice,
+                            Value = choice,  // This will be a string
+                        }).ToList<AdaptiveChoice>(),
+                    }
+                },
             };
+            card.Actions = new List<AdaptiveAction> { new AdaptiveSubmitAction() };
+
             // Prompt
-            var activity = (Activity)MessageFactory.Attachment(new Attachment
+            var cardAttachment = new Attachment
             {
                 ContentType = AdaptiveCard.ContentType,
                 // Convert the AdaptiveCard to a JObject
-                Content = JObject.FromObject(card),
-            });
-            activity.ReplyToId = stepContext.Context.Activity.Id;
-
-            var _appId = "e0de0d3f-8ed6-47dc-afa7-caebdd9c6f43";
-            var teamsChannelId = stepContext.Context.Activity.TeamsGetChannelId();
-            var serviceUrl = stepContext.Context.Activity.ServiceUrl;
-            var credentials = new MicrosoftAppCredentials(_appId, "OX~jD7eP2E~3l7sdMK-Q84.SdL4GvbSKq~");
-            ConversationReference conversationReference = null;
-
-            var teamMember = await TeamsInfo.GetMemberAsync(stepContext.Context, stepContext.Context.Activity.From.Id, cancellationToken);
-            var conversationParameters = new ConversationParameters
-            {
-                IsGroup = false,
-                Bot = stepContext.Context.Activity.Recipient,
-                Members = new ChannelAccount[] { teamMember },
-                TenantId = stepContext.Context.Activity.Conversation.TenantId,
+                Content = JObject.FromObject(card)
             };
 
-            await ((BotFrameworkAdapter)stepContext.Context.Adapter).CreateConversationAsync(
-                teamsChannelId,
-                serviceUrl,
-                credentials,
-                conversationParameters,
-                async (t1, c1) =>
+            var opts = new PromptOptions
+            {
+                Prompt = new Activity
                 {
-                    conversationReference = t1.Activity.GetConversationReference();
-                    await ((BotFrameworkAdapter)stepContext.Context.Adapter).ContinueConversationAsync(
-                        _appId,
-                        conversationReference,
-                        async (t2, c2) =>
-                        {
-                            await t2.SendActivityAsync(activity, c2);
-                        },
-                        cancellationToken);
+                    Attachments = new List<Attachment>() { cardAttachment },
+                    Type = ActivityTypes.Message,
                 },
-                cancellationToken);
+            };
 
+            return await stepContext.PromptAsync(AdaptivePromptId, opts, cancellationToken);
         }
     }
 }
