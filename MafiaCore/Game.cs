@@ -189,7 +189,7 @@ namespace MafiaCore
             // TODO: show player killed
         }
 
-        private void EliminatePlayer(Player playerToEliminate)
+        public void EliminatePlayer(Player playerToEliminate)
         {
             playerToEliminate.Active = false;
             ActivePlayers.Remove(playerToEliminate);
@@ -205,12 +205,12 @@ namespace MafiaCore
             }
         }
 
-        internal bool AllMafiasCaught()
+        public bool AllMafiasCaught()
         {
             return Mafias.Count == 0;
         }
 
-        internal bool AllCivilliansEliminated()
+        public bool AllCivilliansEliminated()
         {
             return Mafias.Count >= ActivePlayers.Where(player => player.Role != Role.Mafia).ToList().Count;
         }

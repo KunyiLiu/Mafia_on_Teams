@@ -62,8 +62,7 @@ namespace Microsoft.BotBuilderSamples
             WaterfallStepContext stepContext,
             CancellationToken cancellationToken)
         {
-            var _livingPeople = stepContext.Options as Dictionary<string, string>;
-            stepContext.Values[currentGame] = _livingPeople;
+            var _livingPeople = MafiaGame.PlayerMapping;
             await stepContext.Context.SendActivityAsync("It's night time.");
 
             // Create the list of options to choose from.
@@ -85,20 +84,21 @@ namespace Microsoft.BotBuilderSamples
             )
         {
             // Continue using the same selection list, if any, from the previous iteration of this dialog.
-            var dict = stepContext.Values[currentGame] as Dictionary<string, string>;
             var choice = (String)(stepContext.Result as JObject)["kill_choice"];
             // await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
-            if (dict.ContainsKey(choice)) dict.Remove(choice);
-            var livingCivilianCount = GetLivingCivilianCount(dict);
-            stepContext.Values[currentGame] = dict;
-            if (livingCivilianCount > 0)
+            if (MafiaGame.PlayerMapping.ContainsKey(choice))
+                MafiaGame.EliminatePlayer(MafiaGame.PlayerMapping[choice]);
+            stepContext.Values[currentGame] = MafiaGame.ActivePlayers
+                .Select(player => player.Name).ToHashSet();
+            if (!MafiaGame.AllCivilliansEliminated())
             {
                 return await stepContext.NextAsync(choice, cancellationToken);
             }
-            else
+            else if (MafiaGame.AllCivilliansEliminated())
             {
                 return await stepContext.EndDialogAsync("Mafia Win", cancellationToken);
             }
+                return await stepContext.EndDialogAsync("Villagers win", cancellationToken);
         }
 
         private async Task<DialogTurnResult> DayVotingStepAsync(
@@ -106,12 +106,12 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken)
         {
             var killed = (string)stepContext.Result;
-            var _livingPeople = stepContext.Values[currentGame] as Dictionary<string, string>;
+            var _livingPeople = MafiaGame.ActivePlayers;
 
             await stepContext.Context.SendActivityAsync("It's daytime now. Last Night, " + killed + " was killed.");
 
             // Create the list of options to choose from.
-            var options = _livingPeople.Keys.ToList();
+            var options = _livingPeople.Select(people => people.Name).ToList();
             options.Add(NoneOption);
             options.Add(DoneOption);
 
@@ -131,7 +131,7 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken)
         {
             // Retrieve their selection list, the choice they made, and whether they chose to finish.
-            var _livingPeople = stepContext.Values[currentGame] as Dictionary<string, string>;
+            var _livingPeople = MafiaGame.ActivePlayers;
             var choice = (FoundChoice)stepContext.Result;
             var done = choice.Value == DoneOption;
 
@@ -144,10 +144,20 @@ namespace Microsoft.BotBuilderSamples
             await stepContext.Context.SendActivityAsync("You decided to vote out " + choice.Value);
             if (choice.Value != NoneOption)
             {
-                _livingPeople.Remove(choice.Value);
+                MafiaGame.EliminatePlayer(MafiaGame.PlayerMapping[choice.Value]);
             }
-            stepContext.Values[currentGame] = _livingPeople;
-            return await stepContext.NextAsync(null, cancellationToken);
+            stepContext.Values[currentGame] = MafiaGame.ActivePlayers
+                .Select(player => player.Name).ToHashSet(); ;
+
+            if (!MafiaGame.AllCivilliansEliminated())
+            {
+                return await stepContext.NextAsync(choice, cancellationToken);
+            }
+            else if (MafiaGame.AllCivilliansEliminated())
+            {
+                return await stepContext.EndDialogAsync("Mafia Win", cancellationToken);
+            }
+            return await stepContext.EndDialogAsync("Villagers win", cancellationToken);
         }
 
             private async Task<DialogTurnResult> LoopStepAsync(
