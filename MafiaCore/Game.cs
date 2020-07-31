@@ -84,7 +84,7 @@ namespace MafiaCore
 
             foreach (Player player in inactivePlayers)
             {
-                player.Role = Role.Civilian;
+                player.Role = Role.Villager;
                 player.Active = true;
                 Villager villager = new Villager(player);
                 ActivePlayers.Add(villager);
@@ -98,7 +98,7 @@ namespace MafiaCore
         {
             foreach (Player player in ActivePlayers)
             {
-                if (player.Role != Role.Civilian)
+                if (player.Role != Role.Villager)
                 {
                     player.State = PlayerState.WaitingForPlayerInput;
                 }

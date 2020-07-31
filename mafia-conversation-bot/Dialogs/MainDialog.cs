@@ -63,7 +63,7 @@ namespace Microsoft.BotBuilderSamples
 
         private async Task<DialogTurnResult> AssignRoleStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            await stepContext.Context.SendActivityAsync("The game starts, assigning roles");
+            await stepContext.Context.SendActivityAsync("The game starts, assigning roles.");
 
             MafiaGame = new Game();
 
@@ -182,7 +182,7 @@ namespace Microsoft.BotBuilderSamples
                 
             }
 
-            await turnContext.SendActivityAsync(MessageFactory.Text("Roles are assigned. Please don't reveal your identity to others"), cancellationToken);
+            await turnContext.SendActivityAsync(MessageFactory.Text("Roles are assigned. Please don't reveal your identity to others."), cancellationToken);
         }
     }
 }
