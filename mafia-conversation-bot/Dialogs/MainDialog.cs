@@ -90,12 +90,11 @@ namespace Microsoft.BotBuilderSamples
 
         private string GetGameSummary()
         {
-            List<Player> specialPlayers = MafiaGame.PlayerMapping.Values
-                .Where(person => person.Role != Role.Civilian && person.Role != Role.None)
-                .ToList();
-            string description = "\nWho were the special players?\n" +
-                string.Join("\n", specialPlayers
-                .Select(person => person.Name + " : " + person.Role.ToString()));
+            string description = "\nWho were the special players?";
+            foreach (var player in MafiaGame.PlayerMapping)
+            {
+                description += "\n" + player.Value.Name + " : " + player.Value.Role.ToString();
+            }
             return description;
         }
 
