@@ -6,11 +6,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MafiaCore;
+using MafiaCore.Players;
 using AdaptiveCards;
 using MafiaCore;
 using MafiaCore.Players;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
+using Microsoft.Bot.Builder.Dialogs.Choices;
 using Microsoft.Bot.Builder.Teams;
 using Microsoft.Bot.Connector.Authentication;
 using Microsoft.Bot.Schema;
@@ -30,7 +33,9 @@ namespace Microsoft.BotBuilderSamples
         private readonly string _appPassword;
 
         public Game MafiaGame { get; set; }
+        public List<ConversationReference> IndividualConversations { get; set; }
 
+        public List<ITurnContext> Contexts { get; set; }
         // Define value names for values tracked inside the dialogs.
         private const string UserInfo = "value-userInfo";
 
@@ -40,6 +45,9 @@ namespace Microsoft.BotBuilderSamples
             _userState = userState;
             _appId = config["MicrosoftAppId"];
             _appPassword = config["MicrosoftAppPassword"];
+
+            IndividualConversations = new List<ConversationReference>();
+            Contexts = new List<ITurnContext>();
 
             AddDialog(new GameRoundDialog());
 
@@ -60,15 +68,16 @@ namespace Microsoft.BotBuilderSamples
             MafiaGame = new Game();
 
             List<TeamsChannelAccount> members = await GetPagedMembers(stepContext.Context, cancellationToken);
-            foreach (TeamsChannelAccount player in members)
-            {
-                MafiaGame.AddPlayer(new Player(player.Id, player.Name));
-            }
             // TODO: update valid range
             if (members.Count <= 0)
             {
                 await stepContext.Context.SendActivityAsync("Not enough players.");
                 return await stepContext.EndDialogAsync(null, cancellationToken);
+            }
+
+            foreach (TeamsChannelAccount player in members)
+            {
+                MafiaGame.AddPlayer(new Player(player.Id, player.Name));
             }
 
             MafiaGame.InitializeGameBoard();
@@ -105,7 +114,7 @@ namespace Microsoft.BotBuilderSamples
 
         private static async Task<List<TeamsChannelAccount>> GetPagedMembers(ITurnContext turnContext, CancellationToken cancellationToken)
         {
-            var members = new List<TeamsChannelAccount>();
+            List<TeamsChannelAccount> members = new List<TeamsChannelAccount>();
             string continuationToken = null;
 
             do
@@ -124,7 +133,6 @@ namespace Microsoft.BotBuilderSamples
             var teamsChannelId = turnContext.Activity.TeamsGetChannelId();
             var serviceUrl = turnContext.Activity.ServiceUrl;
             var credentials = new MicrosoftAppCredentials(_appId, _appPassword);
-            ConversationReference conversationReference = null;
 
             if (teamsChannelId != null)
             {
@@ -132,7 +140,7 @@ namespace Microsoft.BotBuilderSamples
                 return;
             }
 
-            foreach (var teamMember in members)
+            foreach (TeamsChannelAccount teamMember in members)
             {
                 // Find player in activeplayers
                 Player player = MafiaGame.ActivePlayers.Where(p => p.Id == teamMember.Id.ToString()).First();
@@ -146,24 +154,32 @@ namespace Microsoft.BotBuilderSamples
                     TenantId = turnContext.Activity.Conversation.TenantId,
                 };
 
-                await ((BotFrameworkAdapter)turnContext.Adapter).CreateConversationAsync(
+                Task conv = ((BotFrameworkAdapter)turnContext.Adapter).CreateConversationAsync(
                     teamsChannelId,
                     serviceUrl,
                     credentials,
                     conversationParameters,
                     async (t1, c1) =>
                     {
-                        conversationReference = t1.Activity.GetConversationReference();
+                        ConversationReference conversationReference = t1.Activity.GetConversationReference();
+                        if (!IndividualConversations.Contains(conversationReference))
+                        {
+                            IndividualConversations.Add(conversationReference);
+                        }
                         await ((BotFrameworkAdapter)turnContext.Adapter).ContinueConversationAsync(
                             _appId,
                             conversationReference,
                             async (t2, c2) =>
                             {
+                                Contexts.Add(t2);
                                 await t2.SendActivityAsync(proactiveMessage, c2);
                             },
                             cancellationToken);
                     },
                     cancellationToken);
+
+                conv.Wait();
+                
             }
 
             await turnContext.SendActivityAsync(MessageFactory.Text("Roles are assigned. Please don't reveal your identity to others"), cancellationToken);

@@ -16,7 +16,11 @@ namespace Microsoft.BotBuilderSamples
 
         // The list of companies the user wants to review.
         public Dictionary<string, string> Players { get; set; } = new Dictionary<string, string>();
-
         public Game Game { get; set; }
+
+        // Individual conversations
+        public List<ConversationReference> IndividualConversations { get; set; }
+
+        public List<ITurnContext> Contexts { get; set; }
     }
 }

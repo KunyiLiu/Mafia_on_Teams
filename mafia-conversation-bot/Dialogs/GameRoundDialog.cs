@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MafiaCore.Players;
 using AdaptiveCards;
 using Bot.AdaptiveCard.Prompt;
 using MafiaCore;
@@ -19,6 +20,7 @@ using Microsoft.Bot.Schema;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using MafiaCore;
 
 namespace Microsoft.BotBuilderSamples
 {
@@ -29,9 +31,14 @@ namespace Microsoft.BotBuilderSamples
         private const string NoneOption = "No one";
 
         // Define value names for values tracked inside the dialogs.
+        private const string currentGame = "value-currentGame";
+        private const string conversations = "value-conversations";
         static string AdaptivePromptId = "adaptive";
-        private const string currentAttendants = "value-currentPlayers";
         private const string UserInfo = "value-userInfo";
+        private const string contexts = "value-contexts";
+
+        public UserProfile GameData { get; set; }
+        public Game MafiaGame { get; set; }
 
         public GameRoundDialog()
             : base(nameof(GameRoundDialog))
@@ -56,11 +63,15 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken)
         {
             var _livingPeople = stepContext.Options as Dictionary<string, string>;
-            stepContext.Values[currentAttendants] = _livingPeople;
+            stepContext.Values[currentGame] = _livingPeople;
             await stepContext.Context.SendActivityAsync("It's night time.");
 
             // Create the list of options to choose from.
-            var options = _livingPeople.Keys.ToList();
+            List<string> options = new List<string>();
+            foreach (string playerName in _livingPeople.Keys)
+            {
+                options.Add(playerName);
+            }
             options.Add(NoneOption);
 
             // TODO: Prompt the user for a choice to Mafia Group.
@@ -74,22 +85,20 @@ namespace Microsoft.BotBuilderSamples
             )
         {
             // Continue using the same selection list, if any, from the previous iteration of this dialog.
-            var dict = stepContext.Values[currentAttendants] as Dictionary<string, string>;
+            var dict = stepContext.Values[currentGame] as Dictionary<string, string>;
             var choice = (String)(stepContext.Result as JObject)["kill_choice"];
-
             // await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
             if (dict.ContainsKey(choice)) dict.Remove(choice);
-
             var livingCivilianCount = GetLivingCivilianCount(dict);
-            stepContext.Values[currentAttendants] = dict;
-
+            stepContext.Values[currentGame] = dict;
             if (livingCivilianCount > 0)
             {
                 return await stepContext.NextAsync(choice, cancellationToken);
-            } else
+            }
+            else
             {
                 return await stepContext.EndDialogAsync("Mafia Win", cancellationToken);
-            }    
+            }
         }
 
         private async Task<DialogTurnResult> DayVotingStepAsync(
@@ -97,7 +106,7 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken)
         {
             var killed = (string)stepContext.Result;
-            var _livingPeople = stepContext.Values[currentAttendants] as Dictionary<string, string>;
+            var _livingPeople = stepContext.Values[currentGame] as Dictionary<string, string>;
 
             await stepContext.Context.SendActivityAsync("It's daytime now. Last Night, " + killed + " was killed.");
 
@@ -122,7 +131,7 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken)
         {
             // Retrieve their selection list, the choice they made, and whether they chose to finish.
-            var _livingPeople = stepContext.Values[currentAttendants] as Dictionary<string, string>;
+            var _livingPeople = stepContext.Values[currentGame] as Dictionary<string, string>;
             var choice = (FoundChoice)stepContext.Result;
             var done = choice.Value == DoneOption;
 
@@ -137,7 +146,7 @@ namespace Microsoft.BotBuilderSamples
             {
                 _livingPeople.Remove(choice.Value);
             }
-            stepContext.Values[currentAttendants] = _livingPeople;
+            stepContext.Values[currentGame] = _livingPeople;
             return await stepContext.NextAsync(null, cancellationToken);
         }
 
@@ -146,7 +155,7 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken)
         {
             // Retrieve their selection list, the choice they made, and whether they chose to finish.
-            var _livingPeople = stepContext.Values[currentAttendants] as Dictionary<string, string>;
+            var _livingPeople = stepContext.Values[currentGame] as Dictionary<string, string>;
 
             var livingCivilianCount = GetLivingCivilianCount(_livingPeople);
             var livingMafia = GetLivingMafiaCount(_livingPeople);
