@@ -137,11 +137,22 @@ namespace Microsoft.BotBuilderSamples
                 return;
             }
 
+            IEnumerable<Player> mafiaMembers = MafiaGame.ActivePlayers.Where(p => p.Role == Role.Mafia);
+
             foreach (TeamsChannelAccount teamMember in members)
             {
                 // Find player in activeplayers
                 Player player = MafiaGame.ActivePlayers.Where(p => p.Id == teamMember.Id.ToString()).First();
-                var proactiveMessage = MessageFactory.Text($"Hello {teamMember.Name}, you are {player.Role}.");
+                string message = $"Hello {teamMember.Name}, you are {player.Role}.";
+                if (player.Role == Role.Mafia)
+                {
+                    foreach (Player mafia in mafiaMembers)
+                    {
+                        message += $" {mafia.Name} ";
+                    }
+                    message += " are Mafia members";
+                }
+                var proactiveMessage = MessageFactory.Text(message);
 
                 var conversationParameters = new ConversationParameters
                 {
