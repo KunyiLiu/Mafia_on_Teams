@@ -159,7 +159,7 @@ namespace Microsoft.BotBuilderSamples
                             message += $"{mafia.Name}, ";
                         }
                     }
-                    message = message.Substring(0, message.Length - 2);
+                    message = message[0..^2];
                 }
                 var proactiveMessage = MessageFactory.Text(message);
 

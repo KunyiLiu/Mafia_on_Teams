@@ -61,7 +61,7 @@ namespace MafiaCore
                 for (int i = 0; i < RolesToAssign[role]; i++)
                 {
                     //remove later
-                    if (role == Role.Mafia && i == 0)
+                    if (role == Role.Doctor && i == 0)
                     {
                         foreach (Player p in inactivePlayers)
                         {
@@ -71,8 +71,8 @@ namespace MafiaCore
                                 p.Active = true;
                                 inactivePlayers.Remove(p);
 
-                                Mafia mafia = new Mafia(p);
-                                Mafias.Add(mafia);
+                                Doctor mafia = new Doctor(p);
+                                Doctors.Add(mafia);
                                 PlayerMapping[p.Id] = mafia;
                                 ActivePlayers.Add(mafia);
                                 break;
