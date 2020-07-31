@@ -100,9 +100,12 @@ namespace Microsoft.BotBuilderSamples
             string status = "The game ends, " + message + "!";
             await stepContext.Context.SendActivityAsync(status);
             await stepContext.Context.SendActivityAsync("Who were the special players?");
-            foreach (var player in MafiaGame.PlayerMapping)
+            foreach (Player player in MafiaGame.PlayerMapping.Values)
             {
-                await stepContext.Context.SendActivityAsync($"{player.Value.Name}: {player.Value.Role.ToString()}");
+                if (player.Role != Role.Villager)
+                {
+                    await stepContext.Context.SendActivityAsync($"{player.Name}: {player.Role.ToString()}");
+                }
             }
 
             var accessor = _userState.CreateProperty<UserProfile>(nameof(UserProfile));
@@ -146,13 +149,17 @@ namespace Microsoft.BotBuilderSamples
                 // Find player in activeplayers
                 Player player = MafiaGame.ActivePlayers.Where(p => p.Id == teamMember.Id.ToString()).First();
                 string message = $"Hello {teamMember.Name}, you are {player.Role}.";
-                if (player.Role == Role.Mafia)
+                if (player.Role == Role.Mafia && mafiaMembers.Count() > 1)
                 {
+                    message += " Your other mafia members: ";
                     foreach (Player mafia in mafiaMembers)
                     {
-                        message += $" {mafia.Name} ";
+                        if (player.Name != mafia.Name)
+                        {
+                            message += $"{mafia.Name}, ";
+                        }
                     }
-                    message += " are Mafia members";
+                    message = message.Substring(0, message.Length - 2);
                 }
                 var proactiveMessage = MessageFactory.Text(message);
 

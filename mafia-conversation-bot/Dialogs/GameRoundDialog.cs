@@ -80,7 +80,7 @@ namespace Microsoft.BotBuilderSamples
             string choice = (string)(stepContext.Result as JObject)["kill_choice"];
             await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
             if (dict.ContainsKey(choice)) dict.Remove(choice);
-            var livingCivilianCount = GetLivingCivilianCount(dict);
+            var livingCivilianCount = GetLivingVillagerCount(dict);
             stepContext.Values[currentGame] = dict;
             if (livingCivilianCount > 0)
             {
@@ -145,7 +145,7 @@ namespace Microsoft.BotBuilderSamples
             // Retrieve their selection list, the choice they made, and whether they chose to finish.
             var _livingPeople = stepContext.Values[currentGame] as Dictionary<string, string>;
 
-            var livingCivilianCount = GetLivingCivilianCount(_livingPeople);
+            var livingCivilianCount = GetLivingVillagerCount(_livingPeople);
             var livingMafia = GetLivingMafiaCount(_livingPeople);
 
             if (livingCivilianCount <= livingMafia)
@@ -163,7 +163,7 @@ namespace Microsoft.BotBuilderSamples
             }
         }
 
-        private int GetLivingCivilianCount(Dictionary<string, string> dict)
+        private int GetLivingVillagerCount(Dictionary<string, string> dict)
         {
             return dict.Where(pair => pair.Value == "Villager").Count();
         }
