@@ -59,6 +59,7 @@ namespace MafiaCore
             {
                 for (int i = 0; i < RolesToAssign[role]; i++)
                 {
+                    if (inactivePlayers.Count == 0) break;
                     Player playerToModify = inactivePlayers[random.Next(inactivePlayers.Count)];
 
                     playerToModify.Role = role;

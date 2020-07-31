@@ -84,15 +84,20 @@ namespace Microsoft.BotBuilderSamples
 
             await MessageRoleToAllMembersAsync(stepContext.Context, members, cancellationToken);
 
+            /*
             var dict = new Dictionary<string, string> () {
                 { "kunyl", "Civilian" },
                 { "Supratik", "Civilian" },
                 { "Nanhua", "Civilian" },
                 { "Yogesh", "Mafia" }
             };
+            */
             var dict2 = MafiaGame.ActivePlayers.ToDictionary(p => p.Name, p => p.Role.ToString());
 
             UserProfile userInfo  = new UserProfile() { Game =  MafiaGame, Players = dict2 };
+
+            var accessor = _userState.CreateProperty<Dictionary<string, string>>("Mafia-Group");
+            await accessor.SetAsync(stepContext.Context, dict2, cancellationToken);
             // TODO: Create Group Chat for Mafia
             return await stepContext.BeginDialogAsync(nameof(GameRoundDialog), dict2, cancellationToken);
         }
@@ -105,8 +110,8 @@ namespace Microsoft.BotBuilderSamples
 
             await stepContext.Context.SendActivityAsync(status);
 
-            var accessor = _userState.CreateProperty<UserProfile>(nameof(UserProfile));
-            var userInfo = new UserProfile();
+            // var accessor = _userState.CreateProperty<UserProfile>(nameof(UserProfile));
+            // var userInfo = new UserProfile();
             // await accessor.SetAsync(stepContext.Context, userInfo, cancellationToken);
 
             return await stepContext.EndDialogAsync(null, cancellationToken);
