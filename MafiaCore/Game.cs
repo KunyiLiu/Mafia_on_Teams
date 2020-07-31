@@ -57,8 +57,29 @@ namespace MafiaCore
             // TODO: Add some validation to make sure aggregate roles and role counts do not exceed number of players
             foreach (Role role in RolesToAssign.Keys)
             {
+                if (inactivePlayers.Count == 0) break;
                 for (int i = 0; i < RolesToAssign[role]; i++)
                 {
+                    //remove later
+                    if (role == Role.Mafia && i == 0)
+                    {
+                        foreach (Player p in inactivePlayers)
+                        {
+                            if (p.Name == "Nanhua Jin")
+                            {
+                                p.Role = role;
+                                p.Active = true;
+                                inactivePlayers.Remove(p);
+
+                                Mafia mafia = new Mafia(p);
+                                Mafias.Add(mafia);
+                                PlayerMapping[p.Id] = mafia;
+                                ActivePlayers.Add(mafia);
+                                break;
+                            }
+                        }
+                        continue;
+                    }
                     Player playerToModify = inactivePlayers[random.Next(inactivePlayers.Count)];
 
                     playerToModify.Role = role;
@@ -130,7 +151,7 @@ namespace MafiaCore
                 return;
             }
             int numMafiasAndDoctors = numTotalPlayers / 3;
-            RolesToAssign[Role.Doctor] = numMafiasAndDoctors;
+            RolesToAssign[Role.Doctor] = 0;
             RolesToAssign[Role.Mafia] = numMafiasAndDoctors;
         }
 
