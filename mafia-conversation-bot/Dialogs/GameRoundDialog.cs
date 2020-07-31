@@ -97,7 +97,7 @@ namespace Microsoft.BotBuilderSamples
             }
             else
             {
-                return await stepContext.EndDialogAsync("Mafia Win", cancellationToken);
+                return await stepContext.EndDialogAsync("Mafia win", cancellationToken);
             }
         }
 

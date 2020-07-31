@@ -84,17 +84,10 @@ namespace Microsoft.BotBuilderSamples
 
             await MessageRoleToAllMembersAsync(stepContext.Context, members, cancellationToken);
 
-            var dict = new Dictionary<string, string> () {
-                { "kunyl", "Civilian" },
-                { "Supratik", "Civilian" },
-                { "Nanhua", "Civilian" },
-                { "Yogesh", "Mafia" }
-            };
-            var dict2 = MafiaGame.ActivePlayers.ToDictionary(p => p.Name, p => p.Role.ToString());
+            var dict = MafiaGame.ActivePlayers.ToDictionary(p => p.Name, p => p.Role.ToString());
 
-            UserProfile userInfo  = new UserProfile() { Game =  MafiaGame, Players = dict2 };
             // TODO: Create Group Chat for Mafia
-            return await stepContext.BeginDialogAsync(nameof(GameRoundDialog), dict2, cancellationToken);
+            return await stepContext.BeginDialogAsync(nameof(GameRoundDialog), dict, cancellationToken);
         }
 
         private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
