@@ -38,7 +38,7 @@ namespace Microsoft.BotBuilderSamples
         private const string contexts = "value-contexts";
 
         public UserProfile GameData { get; set; }
-        public Game MafiaGame { get; set; }
+        //public Game MafiaGame { get; set; }
 
         public GameRoundDialog()
             : base(nameof(GameRoundDialog))
@@ -62,12 +62,12 @@ namespace Microsoft.BotBuilderSamples
             WaterfallStepContext stepContext,
             CancellationToken cancellationToken)
         {
-            var _livingPeople = MafiaGame.PlayerMapping;
+            var _livingPeople = MainDialog.MafiaGame.GetActivePlayerNames();
             await stepContext.Context.SendActivityAsync("It's night time.");
 
             // Create the list of options to choose from.
             List<string> options = new List<string>();
-            foreach (string playerName in _livingPeople.Keys)
+            foreach (string playerName in _livingPeople)
             {
                 options.Add(playerName);
             }
@@ -86,15 +86,15 @@ namespace Microsoft.BotBuilderSamples
             // Continue using the same selection list, if any, from the previous iteration of this dialog.
             var choice = (String)(stepContext.Result as JObject)["kill_choice"];
             // await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
-            if (MafiaGame.PlayerMapping.ContainsKey(choice))
-                MafiaGame.EliminatePlayer(MafiaGame.PlayerMapping[choice]);
-            stepContext.Values[currentGame] = MafiaGame.ActivePlayers
+            if (MainDialog.MafiaGame.PlayerMapping.ContainsKey(choice))
+                MainDialog.MafiaGame.EliminatePlayer(MainDialog.MafiaGame.PlayerMapping[choice]);
+            stepContext.Values[currentGame] = MainDialog.MafiaGame.ActivePlayers
                 .Select(player => player.Name).ToHashSet();
-            if (!MafiaGame.AllCivilliansEliminated())
+            if (!MainDialog.MafiaGame.AllCivilliansEliminated())
             {
                 return await stepContext.NextAsync(choice, cancellationToken);
             }
-            else if (MafiaGame.AllCivilliansEliminated())
+            else if (MainDialog.MafiaGame.AllCivilliansEliminated())
             {
                 return await stepContext.EndDialogAsync("Mafia Win", cancellationToken);
             }
@@ -106,7 +106,7 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken)
         {
             var killed = (string)stepContext.Result;
-            var _livingPeople = MafiaGame.ActivePlayers;
+            var _livingPeople = MainDialog.MafiaGame.ActivePlayers;
 
             await stepContext.Context.SendActivityAsync("It's daytime now. Last Night, " + killed + " was killed.");
 
@@ -131,7 +131,7 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken)
         {
             // Retrieve their selection list, the choice they made, and whether they chose to finish.
-            var _livingPeople = MafiaGame.ActivePlayers;
+            var _livingPeople = MainDialog.MafiaGame.ActivePlayers;
             var choice = (FoundChoice)stepContext.Result;
             var done = choice.Value == DoneOption;
 
@@ -144,16 +144,16 @@ namespace Microsoft.BotBuilderSamples
             await stepContext.Context.SendActivityAsync("You decided to vote out " + choice.Value);
             if (choice.Value != NoneOption)
             {
-                MafiaGame.EliminatePlayer(MafiaGame.PlayerMapping[choice.Value]);
+                MainDialog.MafiaGame.EliminatePlayer(MainDialog.MafiaGame.PlayerMapping[choice.Value]);
             }
-            stepContext.Values[currentGame] = MafiaGame.ActivePlayers
+            stepContext.Values[currentGame] = MainDialog.MafiaGame.ActivePlayers
                 .Select(player => player.Name).ToHashSet(); ;
 
-            if (!MafiaGame.AllCivilliansEliminated())
+            if (!MainDialog.MafiaGame.AllCivilliansEliminated())
             {
                 return await stepContext.NextAsync(choice, cancellationToken);
             }
-            else if (MafiaGame.AllCivilliansEliminated())
+            else if (MainDialog.MafiaGame.AllCivilliansEliminated())
             {
                 return await stepContext.EndDialogAsync("Mafia Win", cancellationToken);
             }
@@ -170,11 +170,11 @@ namespace Microsoft.BotBuilderSamples
             var livingCivilianCount = GetLivingCivilianCount(_livingPeople);
             var livingMafia = GetLivingMafiaCount(_livingPeople);
 
-            if (livingCivilianCount <= livingMafia)
+            if (MainDialog.MafiaGame.AllCivilliansEliminated())
             {
                 return await stepContext.EndDialogAsync("Mafia Win", cancellationToken);
             }
-            else if (livingMafia == 0)
+            else if (MainDialog.MafiaGame.AllMafiasCaught())
             {
                 return await stepContext.EndDialogAsync("Civilian Win", cancellationToken);
             }

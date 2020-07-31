@@ -245,5 +245,11 @@ namespace MafiaCore
         {
 
         }
+
+        public List<string> GetActivePlayerNames()
+        {
+            return PlayerMapping.Keys.Where(people => ActivePlayers
+            .Contains(PlayerMapping[people])).ToList();
+        }
     }
 }

@@ -32,7 +32,7 @@ namespace Microsoft.BotBuilderSamples
         private readonly string _appId;
         private readonly string _appPassword;
 
-        public Game MafiaGame { get; set; }
+        public static Game MafiaGame { get; set; }
         public List<ConversationReference> IndividualConversations { get; set; }
 
         public List<ITurnContext> Contexts { get; set; }
