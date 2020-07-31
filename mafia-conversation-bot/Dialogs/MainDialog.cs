@@ -63,7 +63,7 @@ namespace Microsoft.BotBuilderSamples
 
         private async Task<DialogTurnResult> AssignRoleStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            await stepContext.Context.SendActivityAsync("The game starts, assigning roles");
+            await stepContext.Context.SendActivityAsync("The game starts, assigning roles.");
 
             MafiaGame = new Game();
 
@@ -84,17 +84,10 @@ namespace Microsoft.BotBuilderSamples
 
             await MessageRoleToAllMembersAsync(stepContext.Context, members, cancellationToken);
 
-            var dict = new Dictionary<string, string> () {
-                { "kunyl", "Civilian" },
-                { "Supratik", "Civilian" },
-                { "Nanhua", "Civilian" },
-                { "Yogesh", "Mafia" }
-            };
-            var dict2 = MafiaGame.ActivePlayers.ToDictionary(p => p.Name, p => p.Role.ToString());
+            var dict = MafiaGame.ActivePlayers.ToDictionary(p => p.Name, p => p.Role.ToString());
 
-            UserProfile userInfo  = new UserProfile() { Game =  MafiaGame, Players = dict2 };
             // TODO: Create Group Chat for Mafia
-            return await stepContext.BeginDialogAsync(nameof(GameRoundDialog), dict2, cancellationToken);
+            return await stepContext.BeginDialogAsync(nameof(GameRoundDialog), dict, cancellationToken);
         }
 
         private string GetGameSummary()
@@ -192,7 +185,7 @@ namespace Microsoft.BotBuilderSamples
                 
             }
 
-            await turnContext.SendActivityAsync(MessageFactory.Text("Roles are assigned. Please don't reveal your identity to others"), cancellationToken);
+            await turnContext.SendActivityAsync(MessageFactory.Text("Roles are assigned. Please don't reveal your identity to others."), cancellationToken);
         }
     }
 }

@@ -87,7 +87,7 @@ namespace Microsoft.BotBuilderSamples
             // Continue using the same selection list, if any, from the previous iteration of this dialog.
             var dict = stepContext.Values[currentGame] as Dictionary<string, string>;
             var choice = (String)(stepContext.Result as JObject)["kill_choice"];
-            // await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
+            await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
             if (dict.ContainsKey(choice)) dict.Remove(choice);
             var livingCivilianCount = GetLivingCivilianCount(dict);
             stepContext.Values[currentGame] = dict;
@@ -97,7 +97,7 @@ namespace Microsoft.BotBuilderSamples
             }
             else
             {
-                return await stepContext.EndDialogAsync("Mafia Win", cancellationToken);
+                return await stepContext.EndDialogAsync("Mafia win", cancellationToken);
             }
         }
 
@@ -108,7 +108,7 @@ namespace Microsoft.BotBuilderSamples
             var killed = (string)stepContext.Result;
             var _livingPeople = stepContext.Values[currentGame] as Dictionary<string, string>;
 
-            await stepContext.Context.SendActivityAsync("It's daytime now. Last Night, " + killed + " was killed.");
+            await stepContext.Context.SendActivityAsync("It's daytime now. Last night, " + killed + " was killed.");
 
             // Create the list of options to choose from.
             var options = _livingPeople.Keys.ToList();
@@ -138,7 +138,7 @@ namespace Microsoft.BotBuilderSamples
             if (done)
             {
                 // If they're done, exit and return their list.
-                return await stepContext.EndDialogAsync("Manually End", cancellationToken);
+                return await stepContext.EndDialogAsync("manually ended", cancellationToken);
             }
 
             await stepContext.Context.SendActivityAsync("You decided to vote out " + choice.Value);
@@ -162,11 +162,11 @@ namespace Microsoft.BotBuilderSamples
 
             if (livingCivilianCount <= livingMafia)
             {
-                return await stepContext.EndDialogAsync("Mafia Win", cancellationToken);
+                return await stepContext.EndDialogAsync("Mafia win", cancellationToken);
             }
             else if (livingMafia == 0)
             {
-                return await stepContext.EndDialogAsync("Civilian Win", cancellationToken);
+                return await stepContext.EndDialogAsync("Villagers win", cancellationToken);
             }
             else
             {
@@ -177,7 +177,7 @@ namespace Microsoft.BotBuilderSamples
 
         private int GetLivingCivilianCount(Dictionary<string, string> dict)
         {
-            return dict.Where(pair => pair.Value == "Civilian").Count();
+            return dict.Where(pair => pair.Value == "Villager").Count();
         }
         private int GetLivingMafiaCount(Dictionary<string, string> dict)
         {
@@ -196,7 +196,7 @@ namespace Microsoft.BotBuilderSamples
                 {
                     new AdaptiveTextBlock()
                     {
-                        Text = "Who you want to kill? For mafia only",
+                        Text = "Who you want to kill? For Mafia only",
                         Weight = AdaptiveTextWeight.Bolder
                     },
                     new AdaptiveChoiceSetInput()

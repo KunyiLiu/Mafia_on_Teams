@@ -10,6 +10,6 @@ namespace MafiaCore
         Mafia,
         Doctor,
         Sheriff,
-        Civilian
+        Villager
     }
 }
