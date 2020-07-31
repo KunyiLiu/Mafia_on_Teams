@@ -87,7 +87,7 @@ namespace Microsoft.BotBuilderSamples
             var dict = MafiaGame.ActivePlayers.ToDictionary(p => p.Name, p => p.Role.ToString());
 
             var accessor = _userState.CreateProperty<Dictionary<string, string>>("Mafia-Group");
-            await accessor.SetAsync(stepContext.Context, dict2, cancellationToken);
+            await accessor.SetAsync(stepContext.Context, dict, cancellationToken);
 
             // TODO: Create Group Chat for Mafia
             return await stepContext.BeginDialogAsync(nameof(GameRoundDialog), dict, cancellationToken);
