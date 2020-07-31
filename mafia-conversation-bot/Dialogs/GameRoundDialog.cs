@@ -27,7 +27,7 @@ namespace Microsoft.BotBuilderSamples
     public class GameRoundDialog : ComponentDialog
     {
         // Define a "done" response for the company selection prompt.
-        private const string DoneOption = "done";
+        private const string DoneOption = "End game";
         private const string NoneOption = "No one";
 
         // Define value names for values tracked inside the dialogs.
@@ -75,7 +75,8 @@ namespace Microsoft.BotBuilderSamples
             options.Add(NoneOption);
 
             // TODO: Prompt the user for a choice to Mafia Group.
-            return await PromptWithAdaptiveCardAsync(stepContext, options, cancellationToken);
+            return await PromptWithAdaptiveCardAsync(stepContext, "Who you want to kill? For Mafia only", 
+                "kill_choice", options, cancellationToken);
             // return await stepContext.PromptAsync(nameof(ChoicePrompt), promptOptions, cancellationToken);
         }
 
@@ -86,7 +87,7 @@ namespace Microsoft.BotBuilderSamples
         {
             // Continue using the same selection list, if any, from the previous iteration of this dialog.
             var dict = stepContext.Values[currentGame] as Dictionary<string, string>;
-            var choice = (String)(stepContext.Result as JObject)["kill_choice"];
+            string choice = (string)(stepContext.Result as JObject)["kill_choice"];
             await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
             if (dict.ContainsKey(choice)) dict.Remove(choice);
             var livingCivilianCount = GetLivingCivilianCount(dict);
@@ -111,19 +112,17 @@ namespace Microsoft.BotBuilderSamples
             await stepContext.Context.SendActivityAsync("It's daytime now. Last night, " + killed + " was killed.");
 
             // Create the list of options to choose from.
-            var options = _livingPeople.Keys.ToList();
+            List<string> options = new List<string>();
+            foreach (string playerName in _livingPeople.Keys)
+            {
+                options.Add(playerName);
+            }
             options.Add(NoneOption);
             options.Add(DoneOption);
 
-            var promptOptions = new PromptOptions
-            {
-                Prompt = MessageFactory.Text("Who you want to vote out"),
-                RetryPrompt = MessageFactory.Text("Please choose an option from the list."),
-                Choices = ChoiceFactory.ToChoices(options),
-            };
-
             // TODO: Prompt the user for a choice to Mafia Group.
-            return await stepContext.PromptAsync(nameof(ChoicePrompt), promptOptions, cancellationToken);
+            return await PromptWithAdaptiveCardAsync(stepContext, "Who do you want to vote out?", 
+                "vote_choice", options, cancellationToken);
         }
 
         private async Task<DialogTurnResult> DayValidationStepAsync(
@@ -132,19 +131,18 @@ namespace Microsoft.BotBuilderSamples
         {
             // Retrieve their selection list, the choice they made, and whether they chose to finish.
             var _livingPeople = stepContext.Values[currentGame] as Dictionary<string, string>;
-            var choice = (FoundChoice)stepContext.Result;
-            var done = choice.Value == DoneOption;
+            string choice = (string)(stepContext.Result as JObject)["vote_choice"];
 
-            if (done)
+            if (choice == DoneOption)
             {
                 // If they're done, exit and return their list.
                 return await stepContext.EndDialogAsync("manually ended", cancellationToken);
             }
 
-            await stepContext.Context.SendActivityAsync("You decided to vote out " + choice.Value);
-            if (choice.Value != NoneOption)
+            await stepContext.Context.SendActivityAsync("You decided to vote out " + choice);
+            if (choice != NoneOption)
             {
-                _livingPeople.Remove(choice.Value);
+                _livingPeople.Remove(choice);
             }
             stepContext.Values[currentGame] = _livingPeople;
             return await stepContext.NextAsync(null, cancellationToken);
@@ -186,6 +184,8 @@ namespace Microsoft.BotBuilderSamples
 
         private async Task<DialogTurnResult> PromptWithAdaptiveCardAsync(
             WaterfallStepContext stepContext,
+            string text,
+            string id,
             List<string> choices,
             CancellationToken cancellationToken)
         {
@@ -196,18 +196,18 @@ namespace Microsoft.BotBuilderSamples
                 {
                     new AdaptiveTextBlock()
                     {
-                        Text = "Who you want to kill? For Mafia only",
+                        Text = text,
                         Weight = AdaptiveTextWeight.Bolder
                     },
                     new AdaptiveChoiceSetInput()
                     {
-                        Id = "kill_choice",
+                        Id = id,
                         Style = AdaptiveChoiceInputStyle.Expanded,
                         Choices = choices.Select(choice => new AdaptiveChoice
                         {
                             Title = choice,
                             Value = choice,  // This will be a string
-                        }).ToList<AdaptiveChoice>(),
+                        }).ToList(),
                     }
                 },
             };
