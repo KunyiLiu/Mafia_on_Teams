@@ -57,6 +57,7 @@ namespace MafiaCore
             // TODO: Add some validation to make sure aggregate roles and role counts do not exceed number of players
             foreach (Role role in RolesToAssign.Keys)
             {
+                if (inactivePlayers.Count == 0) break;
                 for (int i = 0; i < RolesToAssign[role]; i++)
                 {
                     //remove later
