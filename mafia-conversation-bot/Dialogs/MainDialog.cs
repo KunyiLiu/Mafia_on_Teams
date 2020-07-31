@@ -88,12 +88,23 @@ namespace Microsoft.BotBuilderSamples
             return await stepContext.BeginDialogAsync(nameof(GameRoundDialog), userInfo, cancellationToken);
         }
 
+        private string GetGameSummary()
+        {
+            List<Player> specialPlayers = MafiaGame.PlayerMapping.Values
+                .Where(person => person.Role != Role.Civilian && person.Role != Role.None)
+                .ToList();
+            string description = "\nWho were the special players?\n" +
+                string.Join("\n", specialPlayers
+                .Select(person => person.Name + " : " + person.Role.ToString()));
+            return description;
+        }
+
         private async Task<DialogTurnResult> FinalStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             var message = (string)stepContext.Result;
 
             string status = "The game ends, " + message + "!";
-
+            status += GetGameSummary();
             await stepContext.Context.SendActivityAsync(status);
 
             var accessor = _userState.CreateProperty<UserProfile>(nameof(UserProfile));
