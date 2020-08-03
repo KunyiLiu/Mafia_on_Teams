@@ -99,14 +99,26 @@ namespace Microsoft.BotBuilderSamples
 
             string status = "The game ends, " + message + "!";
             await stepContext.Context.SendActivityAsync(status);
-            await stepContext.Context.SendActivityAsync("Who were the special players?");
+
+            var roleToPlayers = new Dictionary<string, List<string>> ();
             foreach (Player player in MafiaGame.PlayerMapping.Values)
             {
-                if (player.Role != Role.Villager)
+                if (player.Role == Role.Villager) continue;
+                var roleName = player.Role.ToString();
+                if (!roleToPlayers.ContainsKey(roleName))
                 {
-                    await stepContext.Context.SendActivityAsync($"{player.Name}: {player.Role.ToString()}");
+                    roleToPlayers[roleName] = new List<string>();
                 }
+                roleToPlayers[roleName].Add(player.Name);
             }
+
+            await stepContext.Context.SendActivityAsync("Who were the special players?");
+            foreach (var pair in roleToPlayers)
+            {
+                Logger.LogInformation("The role is {0}", pair.Key);
+                await stepContext.Context.SendActivityAsync($"{pair.Key}: {string.Join(", ", pair.Value)}");
+            }
+            // await stepContext.Context.SendActivityAsync($"{player.Name}: {player.Role.ToString()}");
 
             var accessor = _userState.CreateProperty<UserProfile>(nameof(UserProfile));
             var userInfo = new UserProfile();
