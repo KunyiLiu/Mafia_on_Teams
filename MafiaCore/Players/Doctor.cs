@@ -19,7 +19,7 @@ namespace MafiaCore.Players
 
         public Doctor(Player player) : base(player)
         {
-
+            Role = Role.Doctor;
         }
 
         public override void DoAction(HashSet<Player> activePlayers)

@@ -4,9 +4,12 @@
 using AdaptiveCards;
 using Bot.AdaptiveCard.Prompt;
 using MafiaCore;
+using MafiaCore.Players;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Schema;
+using Microsoft.IdentityModel.Clients.ActiveDirectory;
 using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -22,13 +25,24 @@ namespace Microsoft.BotBuilderSamples
 
         // Define value names for values tracked inside the dialogs.
         private const string currentGame = "value-currentGame";
-        private const string conversations = "value-conversations";
         static string AdaptivePromptId = "adaptive";
-        private const string UserInfo = "value-userInfo";
-        private const string contexts = "value-contexts";
+        private const string KillChoice = "kill_choice";
+        private const string VoteChoice = "vote_choice";
 
         public UserProfile GameData { get; set; }
-        public Game MafiaGame { get; set; }
+
+        private Game _mafiaGame;
+        public Game MafiaGame
+        {
+            get
+            {
+                return _mafiaGame ??= new Game();
+            }
+            set
+            {
+                _mafiaGame = value;
+            }
+        }
 
         public GameRoundDialog()
             : base(nameof(GameRoundDialog))
@@ -52,22 +66,21 @@ namespace Microsoft.BotBuilderSamples
             WaterfallStepContext stepContext,
             CancellationToken cancellationToken)
         {
-            var _livingPeople = stepContext.Options as Dictionary<string, string>;
-            stepContext.Values[currentGame] = _livingPeople;
+            if (stepContext.Options != null)
+            {
+                var _gameData = stepContext.Options as ConversationData;
+                stepContext.Values[currentGame] = _gameData;
+                MafiaGame = new Game(_gameData.UserProfileMap, _gameData.RoleToUsers, _gameData.ActivePlayers);
+            }
+            
             await stepContext.Context.SendActivityAsync("It's night time.");
 
             // Create the list of options to choose from.
-            List<string> options = new List<string>();
-            foreach (string playerName in _livingPeople.Keys)
-            {
-                options.Add(playerName);
-            }
-            options.Add(NoneOption);
+            var options = CreatePromptOptions();
 
             // TODO: Prompt the user for a choice to Mafia Group.
-            return await PromptWithAdaptiveCardAsync(stepContext, "Who you want to kill? For Mafia only", 
-                "kill_choice", options, cancellationToken);
-            // return await stepContext.PromptAsync(nameof(ChoicePrompt), promptOptions, cancellationToken);
+            return await PromptWithAdaptiveCardAsync(stepContext, "Who you want to kill? For Mafia only",
+                KillChoice, options, cancellationToken);
         }
 
         private async Task<DialogTurnResult> NightValidationStepAsync(
@@ -76,21 +89,25 @@ namespace Microsoft.BotBuilderSamples
             )
         {
             // Continue using the same selection list, if any, from the previous iteration of this dialog.
-            var dict = stepContext.Values[currentGame] as Dictionary<string, string>;
-            string choice = (string)(stepContext.Result as JObject)["kill_choice"];
-            if (choice == null) return await stepContext.NextAsync(choice, cancellationToken);
+            string choice = (string)(stepContext.Result as JObject)[KillChoice];
+            if (choice == null) return await stepContext.NextAsync(null, cancellationToken);
 
             // await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
-            if (dict.ContainsKey(choice)) dict.Remove(choice);
-            var livingCivilianCount = GetLivingVillagerCount(dict);
-            stepContext.Values[currentGame] = dict;
-            if (livingCivilianCount > 0)
+
+            MafiaGame.AssignTargetToPlayers(choice, Role.Mafia);
+            MafiaGame.ExecuteNightPhase();
+
+            if (MafiaGame.CurrentState == GameState.MafiasWon)
             {
-                return await stepContext.NextAsync(choice, cancellationToken);
+                return await stepContext.EndDialogAsync("Mafia win", cancellationToken);
+            }
+            else if (MafiaGame.CurrentState == GameState.MafiasLost)
+            {
+                return await stepContext.EndDialogAsync("Villagers win", cancellationToken);
             }
             else
             {
-                return await stepContext.EndDialogAsync("Mafia win", cancellationToken);
+                return await stepContext.NextAsync(MafiaGame.Mafias.FirstOrDefault()?.Target, cancellationToken);
             }
         }
 
@@ -99,22 +116,15 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken)
         {
             var killed = (string)stepContext.Result;
-            var _livingPeople = stepContext.Values[currentGame] as Dictionary<string, string>;
+            var killedPlayerName = !string.IsNullOrEmpty(killed) ? MafiaGame.PlayerMapping[killed].Name : "no one";
 
-            await stepContext.Context.SendActivityAsync("It's daytime now. Last night, " + killed + " was killed.");
+            await stepContext.Context.SendActivityAsync("It's daytime now. Last night, " + killedPlayerName + " was killed.");
 
             // Create the list of options to choose from.
-            List<string> options = new List<string>();
-            foreach (string playerName in _livingPeople.Keys)
-            {
-                options.Add(playerName);
-            }
-            options.Add(NoneOption);
-            options.Add(DoneOption);
+            var options = CreatePromptOptions(true);
 
-            // TODO: Prompt the user for a choice to Mafia Group.
-            return await PromptWithAdaptiveCardAsync(stepContext, "Who do you want to vote out?", 
-                "vote_choice", options, cancellationToken);
+            return await PromptWithAdaptiveCardAsync(stepContext, "Who do you want to vote out?",
+                VoteChoice, options, cancellationToken);
         }
 
         private async Task<DialogTurnResult> DayValidationStepAsync(
@@ -122,8 +132,7 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken)
         {
             // Retrieve their selection list, the choice they made, and whether they chose to finish.
-            var _livingPeople = stepContext.Values[currentGame] as Dictionary<string, string>;
-            string choice = (string)(stepContext.Result as JObject)["vote_choice"];
+            string choice = (string)(stepContext.Result as JObject)[VoteChoice];
 
             if (choice == DoneOption)
             {
@@ -131,12 +140,14 @@ namespace Microsoft.BotBuilderSamples
                 return await stepContext.EndDialogAsync("manually ended", cancellationToken);
             }
 
-            await stepContext.Context.SendActivityAsync("You decided to vote out " + choice);
-            if (choice != NoneOption)
-            {
-                _livingPeople.Remove(choice);
-            }
-            stepContext.Values[currentGame] = _livingPeople;
+            var choiceName = choice != null && MafiaGame.PlayerMapping.ContainsKey(choice) ?
+                MafiaGame.PlayerMapping[choice].Name :
+                "no one";
+            await stepContext.Context.SendActivityAsync("You decided to vote out " + choiceName);
+
+            MafiaGame.AssignVoteToPlayers(choice);
+            MafiaGame.ExecuteVotingPhase();
+
             return await stepContext.NextAsync(null, cancellationToken);
         }
 
@@ -145,23 +156,19 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken)
         {
             // Retrieve their selection list, the choice they made, and whether they chose to finish.
-            var _livingPeople = stepContext.Values[currentGame] as Dictionary<string, string>;
 
-            var livingCivilianCount = GetLivingVillagerCount(_livingPeople);
-            var livingMafia = GetLivingMafiaCount(_livingPeople);
-
-            if (livingCivilianCount <= livingMafia)
+            if (MafiaGame.CurrentState == GameState.MafiasWon)
             {
                 return await stepContext.EndDialogAsync("Mafia win", cancellationToken);
             }
-            else if (livingMafia == 0)
+            else if (MafiaGame.CurrentState == GameState.MafiasLost)
             {
                 return await stepContext.EndDialogAsync("Villagers win", cancellationToken);
             }
             else
             {
                 // Otherwise, repeat this dialog, passing in the list from this iteration.
-                return await stepContext.ReplaceDialogAsync(nameof(GameRoundDialog), _livingPeople, cancellationToken);
+                return await stepContext.ReplaceDialogAsync(nameof(GameRoundDialog), null, cancellationToken);
             }
         }
 
@@ -178,7 +185,7 @@ namespace Microsoft.BotBuilderSamples
             WaterfallStepContext stepContext,
             string text,
             string id,
-            List<string> choices,
+            List<Tuple<string, string>> choices,
             CancellationToken cancellationToken)
         {
             // Create card
@@ -195,10 +202,10 @@ namespace Microsoft.BotBuilderSamples
                     {
                         Id = id,
                         Style = AdaptiveChoiceInputStyle.Expanded,
-                        Choices = choices.Select(choice => new AdaptiveChoice
+                        Choices = choices.Select(tup => new AdaptiveChoice
                         {
-                            Title = choice,
-                            Value = choice,  // This will be a string
+                            Title = tup.Item1,  // Player Name
+                            Value = tup.Item2,  // Player Id
                         }).ToList(),
                     }
                 },
@@ -223,6 +230,19 @@ namespace Microsoft.BotBuilderSamples
             };
 
             return await stepContext.PromptAsync(AdaptivePromptId, opts, cancellationToken);
+        }
+
+        private List<Tuple<string, string>> CreatePromptOptions(bool isDayVoting = false)
+        {
+            List<Tuple<string, string>> options = new List<Tuple<string, string>>();
+            foreach (Player player in MafiaGame.ActivePlayers)
+            {
+                options.Add(Tuple.Create(player.Name, player.Id));
+            }
+            options.Add(Tuple.Create(NoneOption, NoneOption));
+
+            if (isDayVoting) options.Add(Tuple.Create(DoneOption, DoneOption));
+            return options;
         }
     }
 }

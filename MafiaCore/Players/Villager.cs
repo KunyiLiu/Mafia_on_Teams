@@ -11,7 +11,7 @@ namespace MafiaCore.Players
 
         public Villager(Player player) : base(player)
         {
-
+            Role = Role.Villager;
         }
 
         public override void DoAction(HashSet<Player> activePlayers)

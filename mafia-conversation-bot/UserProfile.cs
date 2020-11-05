@@ -12,15 +12,9 @@ namespace Microsoft.BotBuilderSamples
     /// <summary>Contains information about a user.</summary>
     public class UserProfile
     {
-        public int PlayerCount { get; set; }
-
-        // The list of companies the user wants to review.
-        public Dictionary<string, string> Players { get; set; } = new Dictionary<string, string>();
-        public Game Game { get; set; }
-
-        // Individual conversations
-        public List<ConversationReference> IndividualConversations { get; set; }
-
-        public List<ITurnContext> Contexts { get; set; }
+        public string Id { get; set; }
+        public string Email { get; set; }
+        public string Name { get; set; }
+        public bool IsActive { get; set; } = true;
     }
 }
