@@ -161,7 +161,7 @@ namespace MafiaCore
 
         public void ExecuteNightPhase()
         {
-            // Can be Removed
+            //  PlayerState can be removed?
             foreach (Player player in ActivePlayers)
             {
                 if (player.Role != Role.Villager)
