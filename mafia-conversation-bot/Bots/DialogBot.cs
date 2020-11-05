@@ -1,10 +1,11 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MafiaCore;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Teams;
@@ -41,6 +42,7 @@ namespace Microsoft.BotBuilderSamples
 
         public override async Task OnTurnAsync(ITurnContext turnContext, CancellationToken cancellationToken = default(CancellationToken))
         {
+            Logger.LogInformation("======Activity Type: {0}, Text: {1} =========\n", turnContext.Activity.Type, turnContext.Activity.Text);
             await base.OnTurnAsync(turnContext, cancellationToken);
 
             // Save any state changes that might have occurred during the turn.
@@ -52,22 +54,48 @@ namespace Microsoft.BotBuilderSamples
         {
             turnContext.Activity.RemoveRecipientMention();
 
-            var accessor = UserState.CreateProperty<Dictionary<string, string>>("Mafia-Group");
-            var userInfo = await accessor.GetAsync(turnContext, () => new Dictionary<string, string>());
-            Logger.LogInformation("----------------Running dialog with Message Activity. Old Id: {0}, new Id: {1}, test: {2}-----------",
-    turnContext.Activity.ReplyToId, turnContext.Activity.Id, string.Join(" + ", userInfo));
+            var userStateAccessor = UserState.CreateProperty<UserProfile>(nameof(UserProfile));
+            var userInfo = await userStateAccessor.GetAsync(turnContext, () => new UserProfile());
 
-            userInfo.TryGetValue(turnContext.Activity.From.Name, out string role);
-            // Run the Dialog with the new message Activity.
-            var check = turnContext.Activity.Value != null && 
-                turnContext.Activity.Value.ToString().Contains("kill_choice") &&
-                role != "Mafia";
-            if (!check)
+            var convStateAccessor = ConversationState.CreateProperty<ConversationData>(nameof(ConversationData));
+            var convInfo = await convStateAccessor.GetAsync(turnContext, () => new ConversationData());
+
+            bool isActiveMafia = false;
+            List<string> mafiaIdList = convInfo.RoleToUsers.GetValueOrDefault(Role.Mafia.ToString(), new List<string>());
+            if (string.IsNullOrEmpty(userInfo.Id))
             {
-                await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>(nameof(DialogState)), cancellationToken);
-            } else
+                isActiveMafia = mafiaIdList.Contains(turnContext.Activity.From.Id);
+                // udpate userState
+                userInfo.Id = turnContext.Activity.From.Id;
+                userInfo.Name = turnContext.Activity.From.Name;
+            }
+            else
+            {
+                isActiveMafia = mafiaIdList.Contains(userInfo.Id);
+            }
+            userInfo.IsActive = convInfo.ActivePlayers.Contains(userInfo.Id);
+            isActiveMafia &= userInfo.IsActive;
+
+            Logger.LogInformation("-----Message Activity. Id: {0}, name: {1}, conversaton: {2} -----\n",
+                turnContext.Activity.From.Id, turnContext.Activity.From.Name, Tuple.Create(turnContext.Activity.Conversation.Name, turnContext.Activity.Conversation.Id));
+            Logger.LogInformation("-----User Profile. Id: {0}, name: {1}, email: {2}, isActive: {3} -----\n", userInfo.Id, userInfo.Name, userInfo.Email, userInfo.IsActive);
+            Logger.LogInformation("-----Converation Data. mafia members: {0} -----\n", string.Join(" + ", mafiaIdList));
+
+            // Run the Dialog with the new message Activity.
+            var isMissChose = turnContext.Activity.Value != null && 
+                turnContext.Activity.Value.ToString().Contains("kill_choice") &&
+                !isActiveMafia;
+            if (!userInfo.IsActive && convInfo.IsGameStarted)
+            {
+                await turnContext.SendActivityAsync("Sorry, you are dead. Please try not doing any operation.");
+            }
+            else if (isMissChose)
             {
                 await turnContext.SendActivityAsync("Only Mafia should decide who to kill!");
+            }
+            else
+            {
+                await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>(nameof(DialogState)), cancellationToken);
             }
         }
     }

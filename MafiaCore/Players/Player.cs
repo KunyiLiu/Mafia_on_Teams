@@ -41,7 +41,7 @@ namespace MafiaCore.Players
             get; set;
         }
 
-        public int Vote
+        public string Vote
         {
             get; set;
         }

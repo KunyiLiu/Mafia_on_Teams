@@ -7,34 +7,77 @@ namespace MafiaCore
 {
     public class Game
     {
-        public int NumPlayers { get; set; }
+        public int NumPlayers { get; set; } = 0;
 
-        public GameState CurrentState { get; set; }
+        public GameState CurrentState { get; set; } = GameState.Unassigned;
 
-        public HashSet<Player> ActivePlayers { get; set; }
+        public HashSet<Player> ActivePlayers { get; set; } = new HashSet<Player>();
 
-        public HashSet<Mafia> Mafias { get; set; }
+        public HashSet<Mafia> Mafias { get; set; } = new HashSet<Mafia>();
 
-        public HashSet<Doctor> Doctors { get; set; }
+        public HashSet<Doctor> Doctors { get; set; } = new HashSet<Doctor>();
 
-        public Dictionary<string, Player> PlayerMapping { get; set; }
+        public Dictionary<string, Player> PlayerMapping { get; set; } = new Dictionary<string, Player>();
 
-        public Dictionary<Role, int> RolesToAssign { get; set; }
+        private Dictionary<Role, int> _rolesToAssign;
+        public Dictionary<Role, int> RolesToAssign 
+        {
+            get 
+            {
+                return _rolesToAssign ?? (_rolesToAssign =
+                    new Dictionary<Role, int>
+                    {
+                        { Role.Mafia, 1 },
+                        { Role.Doctor, 1 },
+                        //{ Role.Sheriff, 1 }
+                    });
+            }
+            set
+            {
+                _rolesToAssign = value;
+            }
+        }
 
         public Game()
         {
-            CurrentState = GameState.Unassigned;
-            NumPlayers = 0;
-            ActivePlayers = new HashSet<Player>();
-            Doctors = new HashSet<Doctor>();
-            Mafias = new HashSet<Mafia>();
-            PlayerMapping = new Dictionary<string, Player>();
-            RolesToAssign = new Dictionary<Role, int>
+        }
+
+        public Game(Dictionary<string, string> userProfileMap, Dictionary<string, List<string>> roleToUsers, List<string> activePlayers)
+        {
+            CurrentState = GameState.Night;
+            List<string> mafiaIdList;
+            List<string> doctorIdList;
+            roleToUsers.TryGetValue(Role.Mafia.ToString(), out mafiaIdList);
+            roleToUsers.TryGetValue(Role.Doctor.ToString(), out doctorIdList);
+
+            foreach (KeyValuePair<string, string> idWithName in userProfileMap)
             {
-                { Role.Mafia, 1 },
-                { Role.Doctor, 1 },
-                //{ Role.Sheriff, 1 }
-            };
+                Player newPlayer = new Player(idWithName.Key, idWithName.Value);
+                AddPlayer(newPlayer);
+                newPlayer.Active = true;
+
+                // TODO: Sheriff
+                if (mafiaIdList.Any() && mafiaIdList.Contains(newPlayer.Id))
+                {
+                    var mafia = new Mafia(newPlayer);
+                    Mafias.Add(mafia);
+                    PlayerMapping[newPlayer.Id] = mafia;
+                    ActivePlayers.Add(mafia);
+                }
+                else if (doctorIdList.Any() && doctorIdList.Contains(newPlayer.Id))
+                {
+                    var doctor = new Doctor(newPlayer);
+                    Doctors.Add(doctor);
+                    PlayerMapping[newPlayer.Id] = doctor;
+                    ActivePlayers.Add(doctor);
+                }
+                else
+                {
+                    var village = new Villager(newPlayer);
+                    PlayerMapping[newPlayer.Id] = village;
+                    ActivePlayers.Add(village);
+                }
+            }
         }
 
         /// <summary>
@@ -65,7 +108,7 @@ namespace MafiaCore
                     {
                         foreach (Player p in inactivePlayers)
                         {
-                            if (p.Name == "Nanhua Jin")
+                            if (p.Name == "Kunyi Liu")
                             {
                                 p.Role = role;
                                 p.Active = true;
@@ -108,6 +151,7 @@ namespace MafiaCore
                 player.Role = Role.Villager;
                 player.Active = true;
                 Villager villager = new Villager(player);
+                PlayerMapping[player.Id] = villager;
                 ActivePlayers.Add(villager);
             }
 
@@ -117,6 +161,7 @@ namespace MafiaCore
 
         public void ExecuteNightPhase()
         {
+            //  PlayerState can be removed?
             foreach (Player player in ActivePlayers)
             {
                 if (player.Role != Role.Villager)
@@ -124,7 +169,6 @@ namespace MafiaCore
                     player.State = PlayerState.WaitingForPlayerInput;
                 }
             }
-
             // TODO: async method to get all the input, and after it finishes, execute the following
 
             ExecutePlayerActions();
@@ -137,8 +181,7 @@ namespace MafiaCore
 
         public void ExecuteVotingPhase()
         {
-            string playerIdToEliminate = GetVotingResult();
-            EliminatePlayer(PlayerMapping[playerIdToEliminate]);
+            VoteOutPlayer();
             ChangeGameState();
         }
 
@@ -173,6 +216,31 @@ namespace MafiaCore
         public void DeserializeFromDatabase()
         {
 
+        }
+
+        public void AssignTargetToPlayers(string targetId, Role playerRole) 
+        {
+            if (!ActivePlayers.Select(p => p.Id).Contains(targetId)) targetId = null;
+
+            if (playerRole == Role.Mafia)
+            {
+                foreach (Mafia mafia in Mafias) mafia.Target = targetId;
+            }
+            else if (playerRole == Role.Doctor)
+            {
+                foreach (Doctor doctor in Doctors) doctor.Target = targetId;
+            }
+        }
+
+        public void AssignVoteToPlayers(string voteId)
+        {
+            // If the vote is not within active players, assign null to the Vote property
+            if (!ActivePlayers.Select(p => p.Id).Contains(voteId)) voteId = null;
+
+            foreach (Player player in ActivePlayers)
+            {
+                player.Vote = voteId;
+            }
         }
 
         private void ExecutePlayerActions()
@@ -255,10 +323,14 @@ namespace MafiaCore
             }
         }
 
-        // TODO : implement this method
-        private string GetVotingResult()
+        private void VoteOutPlayer()
         {
-            return null;
+            // All players have the same vote
+            string playerVote = ActivePlayers.FirstOrDefault()?.Vote;
+            if (string.IsNullOrEmpty(playerVote)) return;
+
+            Player playerToEliminate = PlayerMapping[playerVote];
+            EliminatePlayer(playerToEliminate);
         }
 
         // TODO: call this function after roles have been assigned to relay information to players
