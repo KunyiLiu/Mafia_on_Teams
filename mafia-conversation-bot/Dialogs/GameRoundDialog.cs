@@ -5,9 +5,11 @@ using AdaptiveCards;
 using Bot.AdaptiveCard.Prompt;
 using MafiaCore;
 using MafiaCore.Players;
+using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Schema;
-using Microsoft.IdentityModel.Clients.ActiveDirectory;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -19,6 +21,8 @@ namespace Microsoft.BotBuilderSamples
 {
     public class GameRoundDialog : ComponentDialog
     {
+        protected readonly ILogger Logger;
+
         // Define a "done" response for the company selection prompt.
         private const string DoneOption = "End game";
         private const string NoneOption = "No one";
@@ -44,7 +48,7 @@ namespace Microsoft.BotBuilderSamples
             }
         }
 
-        public GameRoundDialog()
+        public GameRoundDialog(ILogger<MainDialog> logger)
             : base(nameof(GameRoundDialog))
         {
             AddDialog(new ChoicePrompt(nameof(ChoicePrompt)));
@@ -60,6 +64,7 @@ namespace Microsoft.BotBuilderSamples
                 }));
 
             InitialDialogId = nameof(WaterfallDialog);
+            Logger = logger;
         }
 
         private async Task<DialogTurnResult> NightVotingStepAsync(
@@ -77,6 +82,11 @@ namespace Microsoft.BotBuilderSamples
 
             // Create the list of options to choose from.
             var options = CreatePromptOptions();
+
+            DialogTurnResult result = await PromptWithAdaptiveCardAsync(stepContext, "Detective, who do you want to investigate?", "investigate_choice",
+                options, cancellationToken);
+
+            Logger.LogInformation(result.Result.ToString());
 
             // TODO: Prompt the user for a choice to Mafia Group.
             return await PromptWithAdaptiveCardAsync(stepContext, "Who you want to kill? For Mafia only",

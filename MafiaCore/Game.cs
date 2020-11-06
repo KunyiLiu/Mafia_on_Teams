@@ -17,6 +17,8 @@ namespace MafiaCore
 
         public HashSet<Doctor> Doctors { get; set; } = new HashSet<Doctor>();
 
+        public HashSet<Detective> Detectives { get; set; } = new HashSet<Detective>();
+
         public Dictionary<string, Player> PlayerMapping { get; set; } = new Dictionary<string, Player>();
 
         private Dictionary<Role, int> _rolesToAssign;
@@ -29,7 +31,7 @@ namespace MafiaCore
                     {
                         { Role.Mafia, 1 },
                         { Role.Doctor, 1 },
-                        //{ Role.Sheriff, 1 }
+                        { Role.Detective, 1 }
                     });
             }
             set
@@ -47,8 +49,10 @@ namespace MafiaCore
             CurrentState = GameState.Night;
             List<string> mafiaIdList;
             List<string> doctorIdList;
+            List<string> detectiveIdList;
             roleToUsers.TryGetValue(Role.Mafia.ToString(), out mafiaIdList);
             roleToUsers.TryGetValue(Role.Doctor.ToString(), out doctorIdList);
+            roleToUsers.TryGetValue(Role.Detective.ToString(), out detectiveIdList);
 
             foreach (KeyValuePair<string, string> idWithName in userProfileMap)
             {
@@ -56,7 +60,6 @@ namespace MafiaCore
                 AddPlayer(newPlayer);
                 newPlayer.Active = true;
 
-                // TODO: Sheriff
                 if (mafiaIdList.Any() && mafiaIdList.Contains(newPlayer.Id))
                 {
                     var mafia = new Mafia(newPlayer);
@@ -70,6 +73,13 @@ namespace MafiaCore
                     Doctors.Add(doctor);
                     PlayerMapping[newPlayer.Id] = doctor;
                     ActivePlayers.Add(doctor);
+                }
+                else if (detectiveIdList.Any() && detectiveIdList.Contains(newPlayer.Id))
+                {
+                    Detective detective = new Detective(newPlayer);
+                    Detectives.Add(detective);
+                    PlayerMapping[newPlayer.Id] = detective;
+                    ActivePlayers.Add(detective);
                 }
                 else
                 {
@@ -108,7 +118,7 @@ namespace MafiaCore
                     {
                         foreach (Player p in inactivePlayers)
                         {
-                            if (p.Name == "Kunyi Liu")
+                            if (p.Name == "Nanhua Jin")
                             {
                                 p.Role = role;
                                 p.Active = true;
@@ -142,6 +152,13 @@ namespace MafiaCore
                         Doctors.Add(doctor);
                         PlayerMapping[playerToModify.Id] = doctor;
                         ActivePlayers.Add(doctor);
+                    }
+                    else if (role == Role.Detective)
+                    {
+                        Detective detective = new Detective(playerToModify);
+                        Detectives.Add(detective);
+                        PlayerMapping[playerToModify.Id] = detective;
+                        ActivePlayers.Add(detective);
                     }
                 }
             }

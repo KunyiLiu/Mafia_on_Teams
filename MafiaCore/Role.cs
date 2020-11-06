@@ -9,7 +9,7 @@ namespace MafiaCore
         None,
         Mafia,
         Doctor,
-        Sheriff,
+        Detective,
         Villager
     }
 }
