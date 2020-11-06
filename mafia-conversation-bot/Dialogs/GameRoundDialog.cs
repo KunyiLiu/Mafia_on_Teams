@@ -30,6 +30,7 @@ namespace Microsoft.BotBuilderSamples
         // Define value names for values tracked inside the dialogs.
         private const string currentGame = "value-currentGame";
         static string AdaptivePromptId = "adaptive";
+        private const string DetectiveChoice = "inspect_choice";
         private const string KillChoice = "kill_choice";
         private const string VoteChoice = "vote_choice";
 
@@ -56,7 +57,8 @@ namespace Microsoft.BotBuilderSamples
 
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
                 {
-                    NightVotingStepAsync,
+                    DetectiveVotingStepAsync,
+                    MafiaVotingStepAsync,
                     NightValidationStepAsync,
                     DayVotingStepAsync,
                     DayValidationStepAsync,
@@ -67,30 +69,43 @@ namespace Microsoft.BotBuilderSamples
             Logger = logger;
         }
 
-        private async Task<DialogTurnResult> NightVotingStepAsync(
+        private async Task<DialogTurnResult> DetectiveVotingStepAsync(
             WaterfallStepContext stepContext,
             CancellationToken cancellationToken)
         {
-            if (stepContext.Options != null)
-            {
-                var _gameData = stepContext.Options as ConversationData;
-                stepContext.Values[currentGame] = _gameData;
-                MafiaGame = new Game(_gameData.UserProfileMap, _gameData.RoleToUsers, _gameData.ActivePlayers);
-            }
-            
+            GetGameData(stepContext);
+
             await stepContext.Context.SendActivityAsync("It's night time.");
 
+            var options = GetActiveUsersOptions();
+
+            DialogTurnResult result = await PromptWithAdaptiveCardAsync(stepContext, "Detective, who do you want to investigate?",
+                DetectiveChoice, options, cancellationToken);
+
+            return result;
+        }
+
+        private async Task<DialogTurnResult> MafiaVotingStepAsync(
+            WaterfallStepContext stepContext,
+            CancellationToken cancellationToken)
+        {
+            string choice = (string)(stepContext.Result as JObject)[DetectiveChoice];
+            if (choice != null)
+            {
+                Logger.LogInformation($"DetectiveChoice={choice}");
+                stepContext.Values[DetectiveChoice] = choice;
+            }
+
+            GetGameData(stepContext);
+
             // Create the list of options to choose from.
-            var options = CreatePromptOptions();
-
-            DialogTurnResult result = await PromptWithAdaptiveCardAsync(stepContext, "Detective, who do you want to investigate?", "investigate_choice",
-                options, cancellationToken);
-
-            Logger.LogInformation(result.Result.ToString());
+            var options = GetActiveUsersOptions();
 
             // TODO: Prompt the user for a choice to Mafia Group.
-            return await PromptWithAdaptiveCardAsync(stepContext, "Who you want to kill? For Mafia only",
+            DialogTurnResult result = await PromptWithAdaptiveCardAsync(stepContext, "Who you want to kill? For Mafia only",
                 KillChoice, options, cancellationToken);
+
+            return result;
         }
 
         private async Task<DialogTurnResult> NightValidationStepAsync(
@@ -131,7 +146,7 @@ namespace Microsoft.BotBuilderSamples
             await stepContext.Context.SendActivityAsync("It's daytime now. Last night, " + killedPlayerName + " was killed.");
 
             // Create the list of options to choose from.
-            var options = CreatePromptOptions(true);
+            var options = GetActiveUsersOptions(true);
 
             return await PromptWithAdaptiveCardAsync(stepContext, "Who do you want to vote out?",
                 VoteChoice, options, cancellationToken);
@@ -181,6 +196,18 @@ namespace Microsoft.BotBuilderSamples
                 return await stepContext.ReplaceDialogAsync(nameof(GameRoundDialog), null, cancellationToken);
             }
         }
+
+        #region Helper Functions
+        private void GetGameData(WaterfallStepContext stepContext)
+        {
+            if (stepContext.Options != null)
+            {
+                var _gameData = stepContext.Options as ConversationData;
+                stepContext.Values[currentGame] = _gameData;
+                MafiaGame = new Game(_gameData.UserProfileMap, _gameData.RoleToUsers, _gameData.ActivePlayers);
+            }
+        }
+        #endregion
 
         private int GetLivingVillagerCount(Dictionary<string, string> dict)
         {
@@ -242,7 +269,7 @@ namespace Microsoft.BotBuilderSamples
             return await stepContext.PromptAsync(AdaptivePromptId, opts, cancellationToken);
         }
 
-        private List<Tuple<string, string>> CreatePromptOptions(bool isDayVoting = false)
+        private List<Tuple<string, string>> GetActiveUsersOptions(bool isDayVoting = false)
         {
             List<Tuple<string, string>> options = new List<Tuple<string, string>>();
             foreach (Player player in MafiaGame.ActivePlayers)

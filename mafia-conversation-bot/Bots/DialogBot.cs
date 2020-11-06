@@ -82,17 +82,17 @@ namespace Microsoft.BotBuilderSamples
             Logger.LogInformation("-----Converation Data. mafia members: {0} -----\n", string.Join(" + ", mafiaIdList));
 
             // Run the Dialog with the new message Activity.
-            var isMissChose = turnContext.Activity.Value != null && 
-                turnContext.Activity.Value.ToString().Contains("kill_choice") &&
-                !isActiveMafia;
+            //var isMissChose = turnContext.Activity.Value != null && 
+            //    turnContext.Activity.Value.ToString().Contains("kill_choice") &&
+            //    !isActiveMafia;
             if (!userInfo.IsActive && convInfo.IsGameStarted)
             {
                 await turnContext.SendActivityAsync("Sorry, you are dead. Please try not doing any operation.");
             }
-            else if (isMissChose)
-            {
-                await turnContext.SendActivityAsync("Only Mafia should decide who to kill!");
-            }
+            //else if (isMissChose)
+            //{
+            //    await turnContext.SendActivityAsync("Only Mafia should decide who to kill!");
+            //}
             else
             {
                 await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>(nameof(DialogState)), cancellationToken);
