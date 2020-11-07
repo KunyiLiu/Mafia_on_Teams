@@ -62,7 +62,7 @@ namespace Microsoft.BotBuilderSamples
             _appId = config["MicrosoftAppId"];
             _appPassword = config["MicrosoftAppPassword"];
 
-            AddDialog(new GameRoundDialog());
+            AddDialog(new GameRoundDialog(logger));
 
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
@@ -192,7 +192,7 @@ namespace Microsoft.BotBuilderSamples
             string openUrlForMafia = "https://teams.microsoft.com/l/chat/0/0?users={0}&topicName=Mafia%20Group&message=Hi%2C%20let%27s%20start%20discussing";
             // TODO: will change it later
             openUrlForMafia = mafiaMemberMap.Count <= 1 ?
-                String.Format(openUrlForMafia, "nanhua.jin@microsoft.com,supratik.neupane@microsoft.com") :
+                String.Format(openUrlForMafia, "kunyl@microsoft.com,nanhua.jin@microsoft.com,supratik.neupane@microsoft.com") :
                 String.Format(openUrlForMafia, String.Join(",", mafiaMemberMap.Keys));
 
             if (teamsChannelId != null)
