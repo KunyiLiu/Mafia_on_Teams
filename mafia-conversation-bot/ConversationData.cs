@@ -19,5 +19,8 @@ namespace Microsoft.BotBuilderSamples
 
         // Is the current round of game started
         public bool IsGameStarted { get; set; } = false;
+
+        public string MafiaTarget { get; set; }
+        public string DoctorTarget { get; set; }
     }
 }

@@ -5,6 +5,7 @@ using AdaptiveCards;
 using Bot.AdaptiveCard.Prompt;
 using MafiaCore;
 using MafiaCore.Players;
+using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Schema;
 using Microsoft.IdentityModel.Clients.ActiveDirectory;
@@ -17,7 +18,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.BotBuilderSamples
 {
-    public class GameRoundDialog : ComponentDialog
+    public class GameRoundDialog : CancelAndHelpDialog
     {
         // Define a "done" response for the company selection prompt.
         private const string DoneOption = "End game";
@@ -27,7 +28,9 @@ namespace Microsoft.BotBuilderSamples
         private const string currentGame = "value-currentGame";
         static string AdaptivePromptId = "adaptive";
         private const string KillChoice = "kill_choice";
+        private const string DoctorChoice = "doctor_choice";
         private const string VoteChoice = "vote_choice";
+        private readonly ConversationState _conversationState;
 
         public UserProfile GameData { get; set; }
 
@@ -44,9 +47,11 @@ namespace Microsoft.BotBuilderSamples
             }
         }
 
-        public GameRoundDialog()
+        public GameRoundDialog(ConversationState conversationState)
             : base(nameof(GameRoundDialog))
         {
+            _conversationState = conversationState;
+
             AddDialog(new ChoicePrompt(nameof(ChoicePrompt)));
             AddDialog(new AdaptiveCardPrompt(AdaptivePromptId));
 
@@ -66,21 +71,27 @@ namespace Microsoft.BotBuilderSamples
             WaterfallStepContext stepContext,
             CancellationToken cancellationToken)
         {
+            /*
+            if (stepContext.Context.Activity.Value != null && stepContext.Context.Activity.Value is JObject)
+            {
+                return await stepContext.NextAsync(stepContext.Context.Activity.Value, cancellationToken);
+            }
+            */
+
             if (stepContext.Options != null)
             {
                 var _gameData = stepContext.Options as ConversationData;
                 stepContext.Values[currentGame] = _gameData;
                 MafiaGame = new Game(_gameData.UserProfileMap, _gameData.RoleToUsers, _gameData.ActivePlayers);
             }
-            
+
             await stepContext.Context.SendActivityAsync("It's night time.");
 
             // Create the list of options to choose from.
             var options = CreatePromptOptions();
 
             // TODO: Prompt the user for a choice to Mafia Group.
-            return await PromptWithAdaptiveCardAsync(stepContext, "Who you want to kill? For Mafia only",
-                KillChoice, options, cancellationToken);
+            return await PromptWithAdaptiveCardAsync(stepContext, options, true, cancellationToken);
         }
 
         private async Task<DialogTurnResult> NightValidationStepAsync(
@@ -89,13 +100,22 @@ namespace Microsoft.BotBuilderSamples
             )
         {
             // Continue using the same selection list, if any, from the previous iteration of this dialog.
-            string choice = (string)(stepContext.Result as JObject)[KillChoice];
+            // string choice = (string)(stepContext.Result as JObject)[KillChoice];
+            var convStateAccessor = _conversationState.CreateProperty<ConversationData>(nameof(ConversationData));
+            var convInfo = await convStateAccessor.GetAsync(stepContext.Context, () => new ConversationData());
+            string choice = convInfo.MafiaTarget;
+
             if (choice == null) return await stepContext.NextAsync(null, cancellationToken);
 
             // await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
 
             MafiaGame.AssignTargetToPlayers(choice, Role.Mafia);
             MafiaGame.ExecuteNightPhase();
+
+            // clean up 
+            convInfo.MafiaTarget = null;
+            convInfo.DoctorTarget = null;
+            await convStateAccessor.SetAsync(stepContext.Context, convInfo, cancellationToken);
 
             if (MafiaGame.CurrentState == GameState.MafiasWon)
             {
@@ -123,8 +143,7 @@ namespace Microsoft.BotBuilderSamples
             // Create the list of options to choose from.
             var options = CreatePromptOptions(true);
 
-            return await PromptWithAdaptiveCardAsync(stepContext, "Who do you want to vote out?",
-                VoteChoice, options, cancellationToken);
+            return await PromptWithAdaptiveCardAsync(stepContext, options, false, cancellationToken);
         }
 
         private async Task<DialogTurnResult> DayValidationStepAsync(
@@ -183,12 +202,40 @@ namespace Microsoft.BotBuilderSamples
 
         private async Task<DialogTurnResult> PromptWithAdaptiveCardAsync(
             WaterfallStepContext stepContext,
-            string text,
-            string id,
             List<Tuple<string, string>> choices,
+            bool isFakePrompt,
             CancellationToken cancellationToken)
         {
-            // Create card
+            // PureCard Sent
+            if (isFakePrompt)
+            {
+                //TODO: You can add more options for different roles here, please refactor the code
+                var mcardAttachment = MakeAdaptiveCard("Who you want to kill? For Mafia only", KillChoice, choices);
+                var dcardAttachment = MakeAdaptiveCard("Who you want to heal? For Doctor only", DoctorChoice, choices);
+                await stepContext.Context.SendActivityAsync(MessageFactory.Attachment(mcardAttachment), cancellationToken);
+                await stepContext.Context.SendActivityAsync(MessageFactory.Attachment(dcardAttachment), cancellationToken);
+                return new DialogTurnResult(DialogTurnStatus.Waiting);
+            }
+            else
+            {
+                var cardAttachment = MakeAdaptiveCard("Who do you want to vote out?", VoteChoice, choices);
+                var opts = new PromptOptions
+                {
+                    Prompt = new Activity
+                    {
+                        Attachments = new List<Attachment>() { cardAttachment },
+                        Type = ActivityTypes.Message,
+                    },
+                };
+                return await stepContext.PromptAsync(AdaptivePromptId, opts, cancellationToken);
+            }
+        }
+
+        private Attachment MakeAdaptiveCard(
+            string text,
+            string id,
+            List<Tuple<string, string>> choices)
+        {
             var card = new AdaptiveCard(new AdaptiveSchemaVersion(1, 0))
             {
                 Body = new List<AdaptiveElement>()
@@ -210,7 +257,10 @@ namespace Microsoft.BotBuilderSamples
                     }
                 },
             };
-            card.Actions = new List<AdaptiveAction> { new AdaptiveSubmitAction() };
+            card.Actions = new List<AdaptiveAction> {
+                new AdaptiveSubmitAction()
+                { Data =  new Dictionary<string, string> { {"SendbackTo", "MafiaGroup"} } }
+            };
 
             // Prompt
             var cardAttachment = new Attachment
@@ -220,16 +270,7 @@ namespace Microsoft.BotBuilderSamples
                 Content = JObject.FromObject(card)
             };
 
-            var opts = new PromptOptions
-            {
-                Prompt = new Activity
-                {
-                    Attachments = new List<Attachment>() { cardAttachment },
-                    Type = ActivityTypes.Message,
-                },
-            };
-
-            return await stepContext.PromptAsync(AdaptivePromptId, opts, cancellationToken);
+            return cardAttachment;
         }
 
         private List<Tuple<string, string>> CreatePromptOptions(bool isDayVoting = false)

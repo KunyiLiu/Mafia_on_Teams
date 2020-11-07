@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -16,16 +17,18 @@ using Microsoft.Bot.Schema;
 using Microsoft.Bot.Schema.Teams;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.BotBuilderSamples
 {
-    public class MainDialog : ComponentDialog
+    public class MainDialog : CancelAndHelpDialog
     {
         private readonly UserState _userState;
         private readonly ConversationState _conversationState;
         protected readonly ILogger Logger;
         private readonly string _appId;
         private readonly string _appPassword;
+        private readonly ConcurrentDictionary<string, ConversationReference> _conversationReferences;
 
         private Game _mafiaGame;
         public Game MafiaGame
@@ -37,7 +40,7 @@ namespace Microsoft.BotBuilderSamples
             set
             {
                 _mafiaGame = value;
-            } 
+            }
         }
 
         private ConversationData _gameData;
@@ -52,17 +55,18 @@ namespace Microsoft.BotBuilderSamples
                 _gameData = value;
             }
         }
-        
+
         public MainDialog(UserState userState, ConversationState conversationState,
-            ILogger<MainDialog> logger, IConfiguration config)
+            ILogger<MainDialog> logger, IConfiguration config, ConcurrentDictionary<string, ConversationReference> conversationReferences)
             : base(nameof(MainDialog))
         {
             _userState = userState;
             _conversationState = conversationState;
             _appId = config["MicrosoftAppId"];
             _appPassword = config["MicrosoftAppPassword"];
+            _conversationReferences = conversationReferences;
 
-            AddDialog(new GameRoundDialog());
+            AddDialog(new GameRoundDialog(conversationState));
 
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
@@ -76,6 +80,13 @@ namespace Microsoft.BotBuilderSamples
 
         private async Task<DialogTurnResult> AssignRoleStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            /*
+            if (stepContext.Context.Activity.Value != null && stepContext.Context.Activity.Value is JObject)
+            {
+                return await stepContext.BeginDialogAsync(nameof(GameRoundDialog));
+            }
+            */
+
             await stepContext.Context.SendActivityAsync("The game starts, assigning roles.");
 
             List<TeamsChannelAccount> members = await GetPagedMembers(stepContext.Context, cancellationToken);
@@ -87,6 +98,8 @@ namespace Microsoft.BotBuilderSamples
             }
 
             // Initialize data in Game
+            MafiaGame = new Game();
+            GameData = new ConversationData();
             foreach (TeamsChannelAccount player in members)
             {
                 MafiaGame.AddPlayer(new Player(player.Id, player.Name));
@@ -97,11 +110,13 @@ namespace Microsoft.BotBuilderSamples
             await MessageRoleToAllMembersAsync(stepContext.Context, members, cancellationToken);
 
             // var dict = MafiaGame.ActivePlayers.ToDictionary(p => p.Name, p => p.Role.ToString());
-            await stepContext.Context.SendActivityAsync("For Mafia, you can join the group to discussion with your fellows.");
+            // await stepContext.Context.SendActivityAsync("For Mafia, you can join the group to discussion with your fellows.");
 
             UpdateConversationState();
             var convStateAccessor = _conversationState.CreateProperty<ConversationData>(nameof(ConversationData));
             await convStateAccessor.SetAsync(stepContext.Context, GameData, cancellationToken);
+
+            // await TestProactiveAsync(stepContext.Context, members, cancellationToken);
 
             return await stepContext.BeginDialogAsync(nameof(GameRoundDialog), GameData, cancellationToken);
         }
@@ -113,7 +128,7 @@ namespace Microsoft.BotBuilderSamples
             string status = "The game ends, " + message + "!";
             await stepContext.Context.SendActivityAsync(status);
 
-            var roleToPlayers = new Dictionary<string, List<string>> ();
+            var roleToPlayers = new Dictionary<string, List<string>>();
             foreach (Player player in MafiaGame.PlayerMapping.Values)
             {
                 if (player.Role == Role.Villager) continue;
@@ -186,6 +201,7 @@ namespace Microsoft.BotBuilderSamples
         private async Task MessageRoleToAllMembersAsync(ITurnContext turnContext, List<TeamsChannelAccount> members, CancellationToken cancellationToken)
         {
             var teamsChannelId = turnContext.Activity.TeamsGetChannelId();
+            teamsChannelId ??= "msteams";
             var serviceUrl = turnContext.Activity.ServiceUrl;
             var credentials = new MicrosoftAppCredentials(_appId, _appPassword);
             var mafiaMemberMap = members.ToDictionary(p => p.UserPrincipalName, p => p.Name, StringComparer.OrdinalIgnoreCase);
@@ -195,13 +211,7 @@ namespace Microsoft.BotBuilderSamples
                 String.Format(openUrlForMafia, "nanhua.jin@microsoft.com,supratik.neupane@microsoft.com") :
                 String.Format(openUrlForMafia, String.Join(",", mafiaMemberMap.Keys));
 
-            if (teamsChannelId != null)
-            {
-                // TODO: Create a private channel
-                return;
-            }
             IEnumerable<Player> mafiaMembers = MafiaGame.ActivePlayers.Where(p => p.Role == Role.Mafia);
-            bool isGroupChatCreated = false; 
 
             foreach (TeamsChannelAccount teamMember in members)
             {
@@ -220,7 +230,7 @@ namespace Microsoft.BotBuilderSamples
                         );
                     message = message.Substring(0, message.Length - 2);
                 }
-                if (player.Role == Role.Mafia && !isGroupChatCreated)
+                else if (player.Role == Role.Mafia)
                 {
                     card.Buttons = new List<CardAction>{
                         new CardAction
@@ -229,9 +239,8 @@ namespace Microsoft.BotBuilderSamples
                             Title = "Join the Mafia Group",
                             Text = "MafiaGroupCreateAction",
                             Value = openUrlForMafia
-                        } 
+                        }
                     };
-                    isGroupChatCreated = true;
                 }
                 // Test: var proactiveMessage = MessageFactory.Text(message);
                 card.Text = message;
@@ -270,6 +279,62 @@ namespace Microsoft.BotBuilderSamples
             }
 
             await turnContext.SendActivityAsync(MessageFactory.Text("Roles are assigned. Please don't reveal your identity to others."), cancellationToken);
+        }
+
+        private async Task TestProactiveAsync(ITurnContext turnContext, List<TeamsChannelAccount> members, CancellationToken cancellationToken)
+        {
+            var teamsChannelId = turnContext.Activity.TeamsGetChannelId();
+            teamsChannelId ??= "msteams";
+            var serviceUrl = turnContext.Activity.ServiceUrl;
+            var credentials = new MicrosoftAppCredentials(_appId, _appPassword);
+
+            var mafias = members.Where(m => MafiaGame.PlayerMapping[m.Id].Role == Role.Mafia).ToArray();
+            var conversationParameters = new ConversationParameters
+            {
+                IsGroup = false,
+                Bot = turnContext.Activity.Recipient,
+                Members = mafias,
+                TenantId = turnContext.Activity.Conversation.TenantId,
+                // TopicName = "Mafia Group"
+
+            };
+
+            var card = new HeroCard()
+            {
+                Text = "Test for proactive message",
+                Buttons = new List<CardAction>
+                {
+                    new CardAction
+                    {
+                        Type = ActionTypes.OpenUrl,
+                        Title = "Click here",
+                        Text = "TestClick",
+                        Value = "https://40132ab200ca.ngrok.io/events/sendback"
+                    }
+                }
+            };
+            var activity = MessageFactory.Attachment(card.ToAttachment());
+
+            await ((BotFrameworkAdapter)turnContext.Adapter).CreateConversationAsync(
+                teamsChannelId,
+                serviceUrl,
+                credentials,
+                conversationParameters,
+                async (t1, c1) =>
+                {
+                    ConversationReference conversationReference = t1.Activity.GetConversationReference();
+                    _conversationReferences.AddOrUpdate(conversationReference.Conversation.Id, conversationReference, (key, newValue) => conversationReference);
+
+                    await ((BotFrameworkAdapter)turnContext.Adapter).ContinueConversationAsync(
+                        _appId,
+                        conversationReference,
+                        async (t2, c2) =>
+                        {
+                            await t2.SendActivityAsync(activity, c2);
+                        },
+                        cancellationToken);
+                },
+                cancellationToken);
         }
     }
 }

@@ -28,8 +28,10 @@ namespace Bot.AdaptiveCard.Prompt
                 throw new ArgumentException(nameof(options));
             }
 
+            
             if (isRetry && options.Prompt != null)
             {
+                if (options.RetryPrompt != null)
                 await turnContext.SendActivityAsync(options.RetryPrompt, cancellationToken).ConfigureAwait(false);
             }
             else if (options.Prompt != null)
@@ -56,13 +58,13 @@ namespace Bot.AdaptiveCard.Prompt
             {
                 if (turnContext.Activity.Value != null)
                 {
-                    if (turnContext.Activity.Value is JObject)
+                    Console.WriteLine("++++++++++++Recognize++++++" + turnContext.Activity.Value.ToString());
+                    if (turnContext.Activity.Value is JObject && turnContext.Activity.Value.ToString().Contains("_choice"))
                     {
                         result.Value = turnContext.Activity.Value as JObject;
                         result.Succeeded = true;
                     }
                 }
-
             }
 
             return Task.FromResult(result);
