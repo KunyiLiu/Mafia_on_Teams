@@ -42,10 +42,18 @@ namespace MafiaCore
         {
         }
 
-        public Game(Dictionary<string, string> userProfileMap, Dictionary<string, List<string>> roleToUsers, List<string> activePlayers)
+        public Game(
+            Dictionary<string, string> userProfileMap,
+            Dictionary<string, List<string>> roleToUsers,
+            List<string> activePlayers,
+            string mafiaTarget,
+            string doctorTarget,
+            string voteTarget,
+            GameState currentState
+            )
         {
-            CurrentState = GameState.Night;
-            List<string> mafiaIdList;
+            CurrentState = currentState;
+            List<string> mafiaIdList;  // active mafias
             List<string> doctorIdList;
             roleToUsers.TryGetValue(Role.Mafia.ToString(), out mafiaIdList);
             roleToUsers.TryGetValue(Role.Doctor.ToString(), out doctorIdList);
@@ -54,12 +62,14 @@ namespace MafiaCore
             {
                 Player newPlayer = new Player(idWithName.Key, idWithName.Value);
                 AddPlayer(newPlayer);
+                newPlayer.Vote = voteTarget;
                 newPlayer.Active = true;
 
                 // TODO: Sheriff
                 if (mafiaIdList.Any() && mafiaIdList.Contains(newPlayer.Id))
                 {
                     var mafia = new Mafia(newPlayer);
+                    mafia.Target = mafiaTarget;
                     Mafias.Add(mafia);
                     PlayerMapping[newPlayer.Id] = mafia;
                     ActivePlayers.Add(mafia);
@@ -67,16 +77,21 @@ namespace MafiaCore
                 else if (doctorIdList.Any() && doctorIdList.Contains(newPlayer.Id))
                 {
                     var doctor = new Doctor(newPlayer);
+                    doctor.Target = doctorTarget;
                     Doctors.Add(doctor);
                     PlayerMapping[newPlayer.Id] = doctor;
                     ActivePlayers.Add(doctor);
                 }
-                else
+                else if (activePlayers.Contains(newPlayer.Id))
                 {
                     var village = new Villager(newPlayer);
                     PlayerMapping[newPlayer.Id] = village;
                     ActivePlayers.Add(village);
                 }
+                else
+                {
+                    PlayerMapping[newPlayer.Id] = newPlayer;
+                }  
             }
         }
 
@@ -177,6 +192,8 @@ namespace MafiaCore
             ShowNightPhaseResults(eliminatedPlayer);
 
             ChangeGameState();
+            AssignTargetToPlayers(null, Role.Mafia);
+            AssignTargetToPlayers(null, Role.Doctor);
         }
 
         public void ExecuteVotingPhase()

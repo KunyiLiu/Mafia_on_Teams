@@ -1,12 +1,17 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+using System;
 using System.Collections.Concurrent;
+using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Bot.Builder;
+using Microsoft.Bot.Builder.Integration;
 using Microsoft.Bot.Builder.Integration.AspNet.Core;
 using Microsoft.Bot.Schema;
 using Microsoft.Extensions.Configuration;
@@ -46,7 +51,62 @@ namespace Microsoft.BotBuilderSamples
         {
             // Delegate the processing of the HTTP POST to the adapter.
             // The adapter will invoke the bot.
-            await _adapter.ProcessAsync(Request, Response, _bot);
+            if (Request == null)
+            {
+                throw new ArgumentNullException(nameof(Request));
+            }
+
+            if (Response == null)
+            {
+                throw new ArgumentNullException(nameof(Response));
+            }
+
+            if (_bot == null)
+            {
+                throw new ArgumentNullException(nameof(_bot));
+            }
+
+            // deserialize the incoming Activity
+            var activity = await HttpHelper.ReadRequestAsync<Activity>(Request);
+
+            // Redirect the reply to the game chat
+            if (activity.Value != null && activity.Value is JObject && activity.Value.ToString().Contains("SendbackTo"))
+            {
+                _conversations.TryGetValue((string)(activity.Value as JObject)["SendbackTo"], out ConversationReference convRef);
+                if (convRef == null)
+                {
+                    Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    return;
+                }
+
+                await ((BotFrameworkAdapter)_adapter).ContinueConversationAsync(_appId, convRef, async (context, token) =>
+                {
+                    context.Activity.Value = activity.Value;
+                    context.Activity.ChannelId = convRef.ChannelId;
+
+                    await _bot.OnTurnAsync(context, token);
+                }, default(CancellationToken));
+
+                return;
+            }
+
+            // grab the auth header from the inbound http request
+            var authHeader = Request.Headers["Authorization"];
+            try
+            {
+                // process the inbound activity with the bot
+                var invokeResponse = await (_adapter as IAdapterIntegration).ProcessActivityAsync(authHeader, activity, _bot.OnTurnAsync, default(CancellationToken)).ConfigureAwait(false);
+
+                // write the response, potentially serializing the InvokeResponse
+                await HttpHelper.WriteResponseAsync(Response, invokeResponse);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // handle unauthorized here as this layer creates the http response
+                Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+            }
+
+            // await _adapter.ProcessAsync(Request, Response, _bot);
         }
 
         [HttpGet("events/sendback")]
@@ -69,8 +129,6 @@ namespace Microsoft.BotBuilderSamples
 
                 await _bot.OnTurnAsync(context, token);
             }, default(CancellationToken));
-
-            _logger.LogInformation("++++++++++++++EVENTS REQUEST +++++++++++");
 
             return new InvokeResponse{ Status = 200 };
         }

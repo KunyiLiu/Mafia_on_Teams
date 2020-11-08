@@ -4,6 +4,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Schema;
@@ -16,10 +17,12 @@ namespace Microsoft.BotBuilderSamples
         private const string HelpMsgText = "This is the help info for MafiaGame Bot. If you have any question, please contact kunyl@micorosoft.com";
         private const string CancelMsgText = "Manually Cancel the whole game.";
         // protected readonly ILogger Logger;
+        private readonly ConversationState _conversationState;
 
-        public CancelAndHelpDialog(string id)
+        public CancelAndHelpDialog(string id, ConversationState conversationState)
             : base(id)
         {
+            _conversationState = conversationState;
         }
 
         protected override async Task<DialogTurnResult> OnContinueDialogAsync(DialogContext innerDc, CancellationToken cancellationToken = default)
@@ -30,27 +33,20 @@ namespace Microsoft.BotBuilderSamples
                 return result;
             }
 
+            var convStateAccessor = _conversationState.CreateProperty<ConversationData>(nameof(ConversationData));
+            var convInfo = await convStateAccessor.GetAsync(innerDc.Context, () => new ConversationData());
+
+            DialogSet dialogs = innerDc.Dialogs;
             if (innerDc.Context.Activity.Type == ActivityTypes.Event)
             {
-                Console.WriteLine("++++++++++++++Begin new stack++++++++++");
-                var dialogs = innerDc.Dialogs;
-                var dc = await dialogs.CreateContextAsync(innerDc.Context);
-
-                DialogSet test = dc.Dialogs;
-                if (dc.ActiveDialog == null)
-                {
-                    await dc.BeginDialogAsync(nameof(MainDialog), cancellationToken);
-                }
-                else
-                {
-                    await dc.ContinueDialogAsync(cancellationToken);
-                }
-
+                // var dc = await dialogs.CreateContextAsync(innerDc.Context);
+                await innerDc.CancelAllDialogsAsync(cancellationToken);
+                Console.WriteLine("++++++++++++++Begin new stack++++++++++" + innerDc.Context.Activity.Value.ToString());
                 return await innerDc.BeginDialogAsync(nameof(MainDialog));
             }
-            
 
-            Console.WriteLine("++++++++++++++++++++++Continue++++++++++");
+            // TODO: Find a btter way to resolve the Diaglog stack issue
+            Console.WriteLine("++++++++++++++++++++++Continue++++++++++" + convInfo.IsGameStarted);
             return await base.OnContinueDialogAsync(innerDc, cancellationToken);
         }
 
@@ -58,8 +54,16 @@ namespace Microsoft.BotBuilderSamples
         {
             if (innerDc.Context.Activity.Type == ActivityTypes.Message && innerDc.Context.Activity.Text != null)
             {
-                var text = innerDc.Context.Activity.Text.ToLowerInvariant();
+                var convStateAccessor = _conversationState.CreateProperty<ConversationData>(nameof(ConversationData));
+                var convInfo = await convStateAccessor.GetAsync(innerDc.Context, () => new ConversationData());
+                if (!convInfo.IsGameStarted)
+                {
+                    await innerDc.CancelAllDialogsAsync(cancellationToken);
+                    Console.WriteLine("++++++++++++++++++++++InterruptAsync++++++++++" + convInfo.IsGameStarted);
+                    return await innerDc.BeginDialogAsync(nameof(MainDialog));
+                }
 
+                var text = innerDc.Context.Activity.Text.ToLowerInvariant();
                 switch (text)
                 {
                     case "help":

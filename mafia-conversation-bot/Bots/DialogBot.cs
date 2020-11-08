@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using MafiaCore;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
+using Microsoft.Bot.Builder.Skills;
 using Microsoft.Bot.Builder.Teams;
 using Microsoft.Bot.Schema;
 using Microsoft.Extensions.Configuration;
@@ -61,7 +62,7 @@ namespace Microsoft.BotBuilderSamples
         protected override Task OnConversationUpdateActivityAsync(ITurnContext<IConversationUpdateActivity> turnContext, CancellationToken cancellationToken)
         {
             AddConversationReference(turnContext.Activity as Activity);
-            Logger.LogInformation("-----ConverSation ADDDDDDD. Id: {0}, name: {1}, conversaton: {2} -----\n",
+            Logger.LogInformation("-----ConverSation ADD. Id: {0}, name: {1}, conversaton: {2} -----\n",
                 turnContext.Activity.From.Id, turnContext.Activity.From.Name, Tuple.Create(turnContext.Activity.Conversation.Name, turnContext.Activity.Conversation.Id));
 
             return base.OnConversationUpdateActivityAsync(turnContext, cancellationToken);
@@ -74,25 +75,47 @@ namespace Microsoft.BotBuilderSamples
 
             if (turnContext.Activity.Type == ActivityTypes.Event)
             {
-                /*
-                var dialogState = ConversationState.CreateProperty<DialogState>("DialogState");
-                var dialogs = new DialogSet(dialogState);
-                var dc = await dialogs.CreateContextAsync(turnContext);
-                DialogSet test = dc.Dialogs;
-                if (dc.ActiveDialog == null)
+                var convStateAccessor = ConversationState.CreateProperty<ConversationData>(nameof(ConversationData));
+                var convInfo = await convStateAccessor.GetAsync(turnContext, () => new ConversationData());
+
+                // Exclude the scenario where players start the game by clicking the choiceprompt afterwards
+                if (!convInfo.IsGameStarted && turnContext.Activity.Value != null)
                 {
-                    await dc.BeginDialogAsync(nameof(MainDialog), cancellationToken);
+                    return;
+                }
+
+                bool isNightChoiceIncomplete = true;
+                if (turnContext.Activity.Value != null &&
+                    turnContext.Activity.Value is JObject)
+                {
+                    var activityValue = turnContext.Activity.Value;
+
+                    if (activityValue.ToString().Contains("kill_choice"))
+                        convInfo.MafiaTarget = (string)(activityValue as JObject)["kill_choice"];
+                    else if (activityValue.ToString().Contains("doctor_choice"))
+                        convInfo.DoctorTarget = (string)(activityValue as JObject)["doctor_choice"];
+
+                    List<string> doctorIdList = convInfo.RoleToUsers.GetValueOrDefault(Role.Doctor.ToString(), new List<string>());
+                    if (doctorIdList.Any())
+                        isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null && convInfo.DoctorTarget != null);
+                    else
+                    {
+                        isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null);
+                    }
+                }
+
+                if (isNightChoiceIncomplete)
+                {
+                    await turnContext.SendActivityAsync("Still waiting for some role to choose!");
+                    // convInfo.DoctorTarget = "No one";
+                    // await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>(nameof(DialogState)), cancellationToken);
                 }
                 else
                 {
-                    await dc.ContinueDialogAsync(cancellationToken);
+                    Logger.LogInformation("-----Converation Data. mafia target: {0}, doctor target: {1} -----\n",
+                        convInfo.MafiaTarget, convInfo.DoctorTarget);
+                    await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>(nameof(DialogState)), cancellationToken);
                 }
-                */
-
-                // var convStateAccessor = ConversationState.CreateProperty<ConversationData>(nameof(ConversationData));
-                // var convInfo = await convStateAccessor.GetAsync(turnContext, () => new ConversationData());
-                // convInfo.MafiaTarget = "29:1wCyJavZQMtos86UTKyTR_P1lMi7PAXRtz3fPQaTQPEiJJ0wy_0xx2xsQHoFc3nBY-52tzcsKUiKdlSyoSNxu6A";
-                await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>(nameof(DialogState)), cancellationToken);
             }
 
             // Save any state changes that might have occurred during the turn.
@@ -111,40 +134,41 @@ namespace Microsoft.BotBuilderSamples
             var convStateAccessor = ConversationState.CreateProperty<ConversationData>(nameof(ConversationData));
             var convInfo = await convStateAccessor.GetAsync(turnContext, () => new ConversationData());
 
-            // Exclude the scenario where players start the game by clicking the choicepromp afterwards
+            // Exclude the scenario where players start the game by clicking the choiceprompt afterwards
             if (!convInfo.IsGameStarted && turnContext.Activity.Value != null)
             {
                 return;
             }
 
-            bool isActiveMafia = false;
-            bool isNightChoiceIncomplete = false;
+            //bool isActiveMafia = false;
+            // bool isNightChoiceIncomplete = false;
             List<string> mafiaIdList = convInfo.RoleToUsers.GetValueOrDefault(Role.Mafia.ToString(), new List<string>());
             if (string.IsNullOrEmpty(userInfo.Id))
             {
-                isActiveMafia = mafiaIdList.Contains(turnContext.Activity.From.Id);
+               //  isActiveMafia = mafiaIdList.Contains(turnContext.Activity.From.Id);
                 // udpate userState
                 userInfo.Id = turnContext.Activity.From.Id;
                 userInfo.Name = turnContext.Activity.From.Name;
             }
-            else
-            {
-                isActiveMafia = mafiaIdList.Contains(userInfo.Id);
-            }
+            // else
+            // {
+            //    isActiveMafia = mafiaIdList.Contains(userInfo.Id);
+            // }
             userInfo.IsActive = convInfo.ActivePlayers.Contains(userInfo.Id);
-            isActiveMafia &= userInfo.IsActive;
-            var isMissChose = turnContext.Activity.Value != null &&
-                turnContext.Activity.Value.ToString().Contains("kill_choice") &&
-                !isActiveMafia;
+            // isActiveMafia &= userInfo.IsActive;
+            // var isMissChose = turnContext.Activity.Value != null &&
+            //    turnContext.Activity.Value.ToString().Contains("kill_choice") &&
+            //    !isActiveMafia;
 
             // update the killtarget and other targets in conversation state
             // It's not used for vote_choice in Daytime currently
             // If doctor or detective get killed, just update the 
+            /*
             if (turnContext.Activity.Value != null &&
                 turnContext.Activity.Value is JObject)
             {
                 var activityValue = turnContext.Activity.Value;
-                if (activityValue.ToString().Contains("kill_choice") || activityValue.ToString().Contains("doctor_choice"))
+                if (activityValue.ToString().Contains("SendbackTo"))
                     isNightChoiceIncomplete = true;
 
                 if (activityValue.ToString().Contains("kill_choice"))
@@ -154,6 +178,7 @@ namespace Microsoft.BotBuilderSamples
 
                 isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null && convInfo.DoctorTarget != null);
             }
+            */
 
             Logger.LogInformation("-----Message Activity. Id: {0}, name: {1}, conversaton: {2}, \t------ conversation count: {3} -----\n",
                 turnContext.Activity.From.Id,
@@ -170,14 +195,14 @@ namespace Microsoft.BotBuilderSamples
             {
                 await turnContext.SendActivityAsync("Sorry, you are dead. Please try not doing any operation.");
             }
-            else if (isMissChose)
-            {
-                await turnContext.SendActivityAsync("Only Mafia should decide who to kill!");
-            }
-            else if (isNightChoiceIncomplete)
-            {
-                await turnContext.SendActivityAsync("Still waiting for some role to choose!");
-            }
+            // else if (isMissChose)
+            // {
+            //    await turnContext.SendActivityAsync("Only Mafia should decide who to kill!");
+            // }
+            // else if (isNightChoiceIncomplete)
+            // {
+            //    await turnContext.SendActivityAsync("Still waiting for some role to choose!");
+            // }
             else
             {
                 await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>(nameof(DialogState)), cancellationToken);

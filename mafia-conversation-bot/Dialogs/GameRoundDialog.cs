@@ -7,11 +7,18 @@ using MafiaCore;
 using MafiaCore.Players;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
+using Microsoft.Bot.Builder.Teams;
+using Microsoft.Bot.Connector.Authentication;
 using Microsoft.Bot.Schema;
+using Microsoft.Bot.Schema.Teams;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Clients.ActiveDirectory;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,27 +37,23 @@ namespace Microsoft.BotBuilderSamples
         private const string KillChoice = "kill_choice";
         private const string DoctorChoice = "doctor_choice";
         private const string VoteChoice = "vote_choice";
+
         private readonly ConversationState _conversationState;
+        private readonly string _appId;
+        private readonly string _appPassword;
+        private readonly ConcurrentDictionary<string, ConversationReference> _conversationReferences;
 
-        public UserProfile GameData { get; set; }
-
-        private Game _mafiaGame;
-        public Game MafiaGame
-        {
-            get
-            {
-                return _mafiaGame ??= new Game();
-            }
-            set
-            {
-                _mafiaGame = value;
-            }
-        }
-
-        public GameRoundDialog(ConversationState conversationState)
-            : base(nameof(GameRoundDialog))
+        public GameRoundDialog(
+            ConversationState conversationState,
+            IConfiguration config,
+            ConcurrentDictionary<string, ConversationReference> conversationReferences
+            )
+            : base(nameof(GameRoundDialog), conversationState)
         {
             _conversationState = conversationState;
+            _appId = config["MicrosoftAppId"];
+            _appPassword = config["MicrosoftAppPassword"];
+            _conversationReferences = conversationReferences;
 
             AddDialog(new ChoicePrompt(nameof(ChoicePrompt)));
             AddDialog(new AdaptiveCardPrompt(AdaptivePromptId));
@@ -71,27 +74,27 @@ namespace Microsoft.BotBuilderSamples
             WaterfallStepContext stepContext,
             CancellationToken cancellationToken)
         {
-            /*
-            if (stepContext.Context.Activity.Value != null && stepContext.Context.Activity.Value is JObject)
-            {
-                return await stepContext.NextAsync(stepContext.Context.Activity.Value, cancellationToken);
-            }
-            */
+            Console.WriteLine("+++++++NightVotingStepAsync+++++++++++");
+            var _gameData = stepContext.Options as ConversationData ?? new ConversationData();
+            stepContext.Values[currentGame] = _gameData;  
 
-            if (stepContext.Options != null)
+            if (_gameData.MafiaTarget != null || _gameData.DoctorTarget != null)
             {
-                var _gameData = stepContext.Options as ConversationData;
-                stepContext.Values[currentGame] = _gameData;
-                MafiaGame = new Game(_gameData.UserProfileMap, _gameData.RoleToUsers, _gameData.ActivePlayers);
+                var stepContextResult = new JObject
+                    (
+                    new JProperty("kill_choice", _gameData.MafiaTarget),
+                    new JProperty("doctor_choice", _gameData.DoctorTarget)
+                    );
+                return await stepContext.NextAsync(stepContextResult, cancellationToken);
             }
 
             await stepContext.Context.SendActivityAsync("It's night time.");
 
             // Create the list of options to choose from.
-            var options = CreatePromptOptions();
+            var options = CreatePromptOptions(_gameData);
 
             // TODO: Prompt the user for a choice to Mafia Group.
-            return await PromptWithAdaptiveCardAsync(stepContext, options, true, cancellationToken);
+            return await PromptWithAdaptiveCardAsync(stepContext, _gameData, options, true, cancellationToken);
         }
 
         private async Task<DialogTurnResult> NightValidationStepAsync(
@@ -99,35 +102,51 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken
             )
         {
+            Console.WriteLine("+++++++NightValidationStepAsync+++++++++++");
             // Continue using the same selection list, if any, from the previous iteration of this dialog.
-            // string choice = (string)(stepContext.Result as JObject)[KillChoice];
+            string kill_choice;
+            string doctor_choice;
             var convStateAccessor = _conversationState.CreateProperty<ConversationData>(nameof(ConversationData));
             var convInfo = await convStateAccessor.GetAsync(stepContext.Context, () => new ConversationData());
-            string choice = convInfo.MafiaTarget;
 
-            if (choice == null) return await stepContext.NextAsync(null, cancellationToken);
+            if (stepContext.Result != null)
+            {
+                kill_choice = (string)(stepContext.Result as JObject)[KillChoice];
+                doctor_choice = (string)(stepContext.Result as JObject)[DoctorChoice];
+            }
+            else
+            {
+                kill_choice = convInfo.MafiaTarget;
+                doctor_choice = convInfo.DoctorTarget;
+
+            }
+            // if (choice == null) return await stepContext.NextAsync(null, cancellationToken);
 
             // await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
-
-            MafiaGame.AssignTargetToPlayers(choice, Role.Mafia);
-            MafiaGame.ExecuteNightPhase();
+            var _gameData = stepContext.Values[currentGame] as ConversationData;
+            var mafiaGame = new Game(_gameData.UserProfileMap, _gameData.RoleToUsers, _gameData.ActivePlayers,
+                _gameData.MafiaTarget, _gameData.DoctorTarget, _gameData.VoteTarget, _gameData.CurrentState);
+            mafiaGame.AssignTargetToPlayers(kill_choice, Role.Mafia);
+            mafiaGame.AssignTargetToPlayers(doctor_choice, Role.Doctor);
+            mafiaGame.ExecuteNightPhase();
 
             // clean up 
             convInfo.MafiaTarget = null;
             convInfo.DoctorTarget = null;
             await convStateAccessor.SetAsync(stepContext.Context, convInfo, cancellationToken);
 
-            if (MafiaGame.CurrentState == GameState.MafiasWon)
+            if (mafiaGame.CurrentState == GameState.MafiasWon)
             {
                 return await stepContext.EndDialogAsync("Mafia win", cancellationToken);
             }
-            else if (MafiaGame.CurrentState == GameState.MafiasLost)
+            else if (mafiaGame.CurrentState == GameState.MafiasLost)
             {
                 return await stepContext.EndDialogAsync("Villagers win", cancellationToken);
             }
             else
             {
-                return await stepContext.NextAsync(MafiaGame.Mafias.FirstOrDefault()?.Target, cancellationToken);
+                stepContext.Values[currentGame] = DialogHelper.ConvertConversationState(mafiaGame);
+                return await stepContext.NextAsync(mafiaGame.Mafias.FirstOrDefault()?.Target, cancellationToken);
             }
         }
 
@@ -135,21 +154,24 @@ namespace Microsoft.BotBuilderSamples
             WaterfallStepContext stepContext,
             CancellationToken cancellationToken)
         {
+            Console.WriteLine("+++++++DayVotingStepAsync+++++++++++");
             var killed = (string)stepContext.Result;
-            var killedPlayerName = !string.IsNullOrEmpty(killed) ? MafiaGame.PlayerMapping[killed].Name : "no one";
+            var _gameData = stepContext.Values[currentGame] as ConversationData;
+            var killedPlayerName = !string.IsNullOrEmpty(killed) ? _gameData.UserProfileMap[killed] : "no one";
 
             await stepContext.Context.SendActivityAsync("It's daytime now. Last night, " + killedPlayerName + " was killed.");
 
             // Create the list of options to choose from.
-            var options = CreatePromptOptions(true);
+            var options = CreatePromptOptions(_gameData, true);
 
-            return await PromptWithAdaptiveCardAsync(stepContext, options, false, cancellationToken);
+            return await PromptWithAdaptiveCardAsync(stepContext, _gameData, options, false, cancellationToken);
         }
 
         private async Task<DialogTurnResult> DayValidationStepAsync(
             WaterfallStepContext stepContext,
             CancellationToken cancellationToken)
         {
+            Console.WriteLine("+++++++DayValidationStepAsync+++++++++++");
             // Retrieve their selection list, the choice they made, and whether they chose to finish.
             string choice = (string)(stepContext.Result as JObject)[VoteChoice];
 
@@ -159,14 +181,18 @@ namespace Microsoft.BotBuilderSamples
                 return await stepContext.EndDialogAsync("manually ended", cancellationToken);
             }
 
-            var choiceName = choice != null && MafiaGame.PlayerMapping.ContainsKey(choice) ?
-                MafiaGame.PlayerMapping[choice].Name :
+            var _gameData = stepContext.Values[currentGame] as ConversationData;
+            var mafiaGame = new Game(_gameData.UserProfileMap, _gameData.RoleToUsers, _gameData.ActivePlayers,
+                _gameData.MafiaTarget, _gameData.DoctorTarget, _gameData.VoteTarget, _gameData.CurrentState);
+            var choiceName = choice != null && mafiaGame.PlayerMapping.ContainsKey(choice) ?
+                mafiaGame.PlayerMapping[choice].Name :
                 "no one";
             await stepContext.Context.SendActivityAsync("You decided to vote out " + choiceName);
 
-            MafiaGame.AssignVoteToPlayers(choice);
-            MafiaGame.ExecuteVotingPhase();
+            mafiaGame.AssignVoteToPlayers(choice);
+            mafiaGame.ExecuteVotingPhase();
 
+            stepContext.Values[currentGame] = DialogHelper.ConvertConversationState(mafiaGame);
             return await stepContext.NextAsync(null, cancellationToken);
         }
 
@@ -175,19 +201,20 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken)
         {
             // Retrieve their selection list, the choice they made, and whether they chose to finish.
+            var _gameData = stepContext.Values[currentGame] as ConversationData;
 
-            if (MafiaGame.CurrentState == GameState.MafiasWon)
+            if (_gameData.CurrentState == GameState.MafiasWon)
             {
                 return await stepContext.EndDialogAsync("Mafia win", cancellationToken);
             }
-            else if (MafiaGame.CurrentState == GameState.MafiasLost)
+            else if (_gameData.CurrentState == GameState.MafiasLost)
             {
                 return await stepContext.EndDialogAsync("Villagers win", cancellationToken);
             }
             else
             {
                 // Otherwise, repeat this dialog, passing in the list from this iteration.
-                return await stepContext.ReplaceDialogAsync(nameof(GameRoundDialog), null, cancellationToken);
+                return await stepContext.ReplaceDialogAsync(nameof(GameRoundDialog), _gameData, cancellationToken);
             }
         }
 
@@ -202,18 +229,41 @@ namespace Microsoft.BotBuilderSamples
 
         private async Task<DialogTurnResult> PromptWithAdaptiveCardAsync(
             WaterfallStepContext stepContext,
+            ConversationData gameData,
             List<Tuple<string, string>> choices,
             bool isFakePrompt,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken
+            )
         {
             // PureCard Sent
             if (isFakePrompt)
             {
                 //TODO: You can add more options for different roles here, please refactor the code
-                var mcardAttachment = MakeAdaptiveCard("Who you want to kill? For Mafia only", KillChoice, choices);
-                var dcardAttachment = MakeAdaptiveCard("Who you want to heal? For Doctor only", DoctorChoice, choices);
-                await stepContext.Context.SendActivityAsync(MessageFactory.Attachment(mcardAttachment), cancellationToken);
-                await stepContext.Context.SendActivityAsync(MessageFactory.Attachment(dcardAttachment), cancellationToken);
+                var currectRef = stepContext.Context.Activity.GetConversationReference();
+                var sendBackData = new Dictionary<string, string> { { "SendbackTo", currectRef.Conversation.Id } };
+                var mcardAttachment = MakeAdaptiveCard("Who you want to kill? For Mafia only", KillChoice, choices, sendBackData);
+                var dcardAttachment = MakeAdaptiveCard("Who you want to heal? For Doctor only", DoctorChoice, choices, sendBackData);
+
+                List<TeamsChannelAccount> members = await DialogHelper.GetPagedMembers(stepContext.Context, cancellationToken);
+                gameData.RoleToUsers.TryGetValue(Role.Mafia.ToString(), out List<string> activeMafiaIds);
+                gameData.RoleToUsers.TryGetValue(Role.Doctor.ToString(), out List<string> activeDoctorIds);
+
+                var mafias = new List<TeamsChannelAccount>();
+                var doctors = new List<TeamsChannelAccount>();
+                foreach (var member in members)
+                {
+                    if (activeMafiaIds.Contains(member.Id))
+                    {
+                        Console.WriteLine("+++++++++++should be here");
+                        mafias.Add(member);
+                    }
+                    else if (activeDoctorIds.Contains(member.Id))
+                        doctors.Add(member);
+                }
+                // await stepContext.Context.SendActivityAsync(MessageFactory.Attachment(mcardAttachment), cancellationToken);
+                await SendtProactiveMsgAsync(stepContext.Context, mafias, mcardAttachment, cancellationToken);
+                await SendtProactiveMsgAsync(stepContext.Context, doctors, dcardAttachment, cancellationToken);
+
                 return new DialogTurnResult(DialogTurnStatus.Waiting);
             }
             else
@@ -230,11 +280,55 @@ namespace Microsoft.BotBuilderSamples
                 return await stepContext.PromptAsync(AdaptivePromptId, opts, cancellationToken);
             }
         }
+        private async Task SendtProactiveMsgAsync(ITurnContext turnContext, List<TeamsChannelAccount> members, Attachment card, CancellationToken cancellationToken)
+        {
+            if (!members.Any()) return;
+
+            var teamsChannelId = turnContext.Activity.TeamsGetChannelId();
+            teamsChannelId ??= "msteams";
+            var serviceUrl = turnContext.Activity.ServiceUrl;
+            var credentials = new MicrosoftAppCredentials(_appId, _appPassword);
+
+            var conversationParameters = new ConversationParameters
+            {
+                IsGroup = false,
+                Bot = turnContext.Activity.Recipient,
+                Members = new List<ChannelAccount> { members.First() },
+                TenantId = turnContext.Activity.Conversation.TenantId,
+                // TopicName = "Mafia Group"
+
+            };
+
+            var activity = MessageFactory.Attachment(card);
+
+            await ((BotFrameworkAdapter)turnContext.Adapter).CreateConversationAsync(
+                teamsChannelId,
+                serviceUrl,
+                credentials,
+                conversationParameters,
+                async (t1, c1) =>
+                {
+                    ConversationReference conversationReference = t1.Activity.GetConversationReference();
+                    _conversationReferences.AddOrUpdate(conversationReference.Conversation.Id, conversationReference, (key, newValue) => conversationReference);
+
+                    await ((BotFrameworkAdapter)turnContext.Adapter).ContinueConversationAsync(
+                        _appId,
+                        conversationReference,
+                        async (t2, c2) =>
+                        {
+                            await t2.SendActivityAsync(activity, c2);
+                        },
+                        cancellationToken);
+                },
+                cancellationToken);
+        }
 
         private Attachment MakeAdaptiveCard(
             string text,
             string id,
-            List<Tuple<string, string>> choices)
+            List<Tuple<string, string>> choices,
+            Dictionary<string, string> requestData = null
+            )
         {
             var card = new AdaptiveCard(new AdaptiveSchemaVersion(1, 0))
             {
@@ -257,10 +351,11 @@ namespace Microsoft.BotBuilderSamples
                     }
                 },
             };
-            card.Actions = new List<AdaptiveAction> {
-                new AdaptiveSubmitAction()
-                { Data =  new Dictionary<string, string> { {"SendbackTo", "MafiaGroup"} } }
-            };
+
+            var submitAction = new AdaptiveSubmitAction();
+            if (requestData != null)
+                submitAction.Data = requestData;
+            card.Actions = new List<AdaptiveAction> { submitAction };
 
             // Prompt
             var cardAttachment = new Attachment
@@ -273,12 +368,12 @@ namespace Microsoft.BotBuilderSamples
             return cardAttachment;
         }
 
-        private List<Tuple<string, string>> CreatePromptOptions(bool isDayVoting = false)
+        private List<Tuple<string, string>> CreatePromptOptions(ConversationData gameData, bool isDayVoting = false)
         {
             List<Tuple<string, string>> options = new List<Tuple<string, string>>();
-            foreach (Player player in MafiaGame.ActivePlayers)
+            foreach (string playerId in gameData.ActivePlayers)
             {
-                options.Add(Tuple.Create(player.Name, player.Id));
+                options.Add(Tuple.Create(gameData.UserProfileMap.GetValueOrDefault(playerId, "Null"), playerId));
             }
             options.Add(Tuple.Create(NoneOption, NoneOption));
 
