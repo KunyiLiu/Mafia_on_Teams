@@ -146,7 +146,17 @@ namespace Microsoft.BotBuilderSamples
             }
 
             //bool isActiveMafia = false;
-            // bool isNightChoiceIncomplete = false;
+            bool isNightChoiceIncomplete = convInfo.CurrentState == GameState.Night;
+            List<string> activeDoctorIdList = convInfo.RoleToUsers.GetValueOrDefault(Role.Doctor.ToString(), new List<string>());
+            activeDoctorIdList = activeDoctorIdList.Where(id => convInfo.ActivePlayers.Contains(id)).ToList();
+            // If doctor is dead
+            if (activeDoctorIdList.Any())
+                isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null && convInfo.DoctorTarget != null);
+            else
+            {
+                isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null);
+            }
+
             // List<string> mafiaIdList = convInfo.RoleToUsers.GetValueOrDefault(Role.Mafia.ToString(), new List<string>());
             if (string.IsNullOrEmpty(userInfo.Id))
             {
@@ -204,10 +214,10 @@ namespace Microsoft.BotBuilderSamples
             // {
             //    await turnContext.SendActivityAsync("Only Mafia should decide who to kill!");
             // }
-            // else if (isNightChoiceIncomplete)
-            // {
-            //    await turnContext.SendActivityAsync("Still waiting for some role to choose!");
-            // }
+            else if (isNightChoiceIncomplete)
+            {
+                await turnContext.SendActivityAsync("🚧 Still waiting for some role to choose...");
+            }
             else
             {
                 await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>(nameof(DialogState)), cancellationToken);
