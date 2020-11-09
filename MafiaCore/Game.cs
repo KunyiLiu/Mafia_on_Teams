@@ -125,7 +125,7 @@ namespace MafiaCore
                     {
                         foreach (Player p in inactivePlayers)
                         {
-                            if (p.Name == "Nanhua Jin")
+                            if (p.Name == "Kunyi Liu")
                             {
                                 p.Role = role;
                                 p.Active = true;
@@ -135,6 +135,25 @@ namespace MafiaCore
                                 Mafias.Add(mafia);
                                 PlayerMapping[p.Id] = mafia;
                                 ActivePlayers.Add(mafia);
+                                break;
+                            }
+                        }
+                        continue;
+                    }
+                    if (role == Role.Detective)
+                    {
+                        foreach (Player p in inactivePlayers)
+                        {
+                            if (p.Name == "Nanhua Jin")
+                            {
+                                p.Role = role;
+                                p.Active = true;
+                                inactivePlayers.Remove(p);
+
+                                Detective detective = new Detective(p);
+                                Detectives.Add(detective);
+                                PlayerMapping[p.Id] = detective;
+                                ActivePlayers.Add(detective);
                                 break;
                             }
                         }
