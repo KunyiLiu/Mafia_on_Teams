@@ -96,6 +96,7 @@ namespace Microsoft.BotBuilderSamples
                         convInfo.DoctorTarget = (string)(activityValue as JObject)["doctor_choice"];
 
                     List<string> doctorIdList = convInfo.RoleToUsers.GetValueOrDefault(Role.Doctor.ToString(), new List<string>());
+                    // If doctor is dead
                     if (doctorIdList.Any())
                         isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null && convInfo.DoctorTarget != null);
                     else
@@ -107,12 +108,12 @@ namespace Microsoft.BotBuilderSamples
                 if (isNightChoiceIncomplete)
                 {
                     await turnContext.SendActivityAsync("Still waiting for some role to choose!");
-                    // convInfo.DoctorTarget = "No one";
-                    // await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>(nameof(DialogState)), cancellationToken);
+                    convInfo.DoctorTarget = "No one";
+                    await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>(nameof(DialogState)), cancellationToken);
                 }
                 else
                 {
-                    Logger.LogInformation("-----Converation Data. mafia target: {0}, doctor target: {1} -----\n",
+                    Logger.LogInformation("===========Converation Data. mafia target: {0}, doctor target: {1} ======\n",
                         convInfo.MafiaTarget, convInfo.DoctorTarget);
                     await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>(nameof(DialogState)), cancellationToken);
                 }

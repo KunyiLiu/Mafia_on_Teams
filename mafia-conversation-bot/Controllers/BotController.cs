@@ -70,6 +70,17 @@ namespace Microsoft.BotBuilderSamples
             var activity = await HttpHelper.ReadRequestAsync<Activity>(Request);
 
             // Redirect the reply to the game chat
+            if (activity.Value != null && activity.Value is JObject)
+            {
+                var currentConvRef = activity.GetConversationReference();
+                await ((BotFrameworkAdapter)_adapter).ContinueConversationAsync(_appId, currentConvRef, async (context, token) =>
+                {
+                    await context.DeleteActivityAsync(activity.ReplyToId, token);
+                    await context.SendActivityAsync("Thanks for your choice! Let's see if it can finish the game ......");
+
+                }, default(CancellationToken));
+            }
+
             if (activity.Value != null && activity.Value is JObject && activity.Value.ToString().Contains("SendbackTo"))
             {
                 _conversations.TryGetValue((string)(activity.Value as JObject)["SendbackTo"], out ConversationReference convRef);

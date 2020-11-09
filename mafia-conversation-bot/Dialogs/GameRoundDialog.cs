@@ -111,6 +111,7 @@ namespace Microsoft.BotBuilderSamples
 
             if (stepContext.Result != null)
             {
+                Console.WriteLine("+++++++NightValidationStepAsync: Get result form stepContext+++++++++++");
                 kill_choice = (string)(stepContext.Result as JObject)[KillChoice];
                 doctor_choice = (string)(stepContext.Result as JObject)[DoctorChoice];
             }
@@ -135,6 +136,7 @@ namespace Microsoft.BotBuilderSamples
             convInfo.DoctorTarget = null;
             await convStateAccessor.SetAsync(stepContext.Context, convInfo, cancellationToken);
 
+            stepContext.Values[currentGame] = DialogHelper.ConvertConversationState(mafiaGame);
             if (mafiaGame.CurrentState == GameState.MafiasWon)
             {
                 return await stepContext.EndDialogAsync("Mafia win", cancellationToken);
@@ -145,7 +147,6 @@ namespace Microsoft.BotBuilderSamples
             }
             else
             {
-                stepContext.Values[currentGame] = DialogHelper.ConvertConversationState(mafiaGame);
                 return await stepContext.NextAsync(mafiaGame.Mafias.FirstOrDefault()?.Target, cancellationToken);
             }
         }
@@ -254,7 +255,6 @@ namespace Microsoft.BotBuilderSamples
                 {
                     if (activeMafiaIds.Contains(member.Id))
                     {
-                        Console.WriteLine("+++++++++++should be here");
                         mafias.Add(member);
                     }
                     else if (activeDoctorIds.Contains(member.Id))

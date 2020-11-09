@@ -11,6 +11,7 @@ using MafiaCore;
 using MafiaCore.Players;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
+using Microsoft.Bot.Builder.Dialogs.Choices;
 using Microsoft.Bot.Builder.Teams;
 using Microsoft.Bot.Connector.Authentication;
 using Microsoft.Bot.Schema;
@@ -40,16 +41,41 @@ namespace Microsoft.BotBuilderSamples
             _appPassword = config["MicrosoftAppPassword"];
             _conversationReferences = conversationReferences;
 
+            AddDialog(new ChoicePrompt(nameof(ChoicePrompt)));
             AddDialog(new GameRoundDialog(conversationState, config, conversationReferences));
 
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
+                StartStepAsync,
                 AssignRoleStepAsync,
                 FinalStepAsync,
             }));
 
             InitialDialogId = nameof(WaterfallDialog);
             Logger = logger;
+        }
+
+        private async Task<DialogTurnResult> StartStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            Console.WriteLine("+++++++StartStepAsync+++++++++++");
+
+            if (stepContext.Context.Activity.Type == ActivityTypes.Event)
+            {
+                return await stepContext.NextAsync(null, cancellationToken);
+            }
+
+            string[] options = new string[] { "New Game: Villager + Doctor + Mafia", "Not Interested" };
+            var message = @"Hello, we are a Teams Chat Bot for playing Magia Game, designed and developed by DRAMA team.
+                If you are interested in playing with our App, please select one of the role patterns to start a new game.";
+            var promptOptions = new PromptOptions
+            {
+                Prompt = MessageFactory.Text(message),
+                // RetryPrompt = MessageFactory.Text("Please choose an option from the list."),
+                Choices = ChoiceFactory.ToChoices(options),
+                Style = ListStyle.HeroCard
+            };
+
+            return await stepContext.PromptAsync(nameof(ChoicePrompt), promptOptions, cancellationToken);
         }
 
         private async Task<DialogTurnResult> AssignRoleStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
@@ -63,6 +89,14 @@ namespace Microsoft.BotBuilderSamples
                 gameData = await convStateAccessor.GetAsync(stepContext.Context, () => new ConversationData());
 
                 return await stepContext.BeginDialogAsync(nameof(GameRoundDialog), gameData, cancellationToken);
+            }
+
+            var result = (FoundChoice)stepContext.Result;
+            Logger.LogInformation("what is th result : " + result);
+            if (result.Value == "Not Interested")
+            {
+                await stepContext.Context.SendActivityAsync("Alright. Hope to see you next time.");
+                return await stepContext.EndDialogAsync("Manual End", cancellationToken);
             }
 
             await stepContext.Context.SendActivityAsync("The game starts, assigning roles.");

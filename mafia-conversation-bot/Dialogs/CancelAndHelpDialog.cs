@@ -56,12 +56,14 @@ namespace Microsoft.BotBuilderSamples
             {
                 var convStateAccessor = _conversationState.CreateProperty<ConversationData>(nameof(ConversationData));
                 var convInfo = await convStateAccessor.GetAsync(innerDc.Context, () => new ConversationData());
+                /*
                 if (!convInfo.IsGameStarted)
                 {
                     await innerDc.CancelAllDialogsAsync(cancellationToken);
-                    Console.WriteLine("++++++++++++++++++++++InterruptAsync++++++++++" + convInfo.IsGameStarted);
+                    Console.WriteLine("++++++++++++++++++++++InterruptAsync++++++++++");
                     return await innerDc.BeginDialogAsync(nameof(MainDialog));
                 }
+                */
 
                 var text = innerDc.Context.Activity.Text.ToLowerInvariant();
                 switch (text)
