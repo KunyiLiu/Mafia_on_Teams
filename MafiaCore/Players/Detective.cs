@@ -14,6 +14,11 @@ namespace MafiaCore.Players
             get; set;
         }
 
+        public string TargetRole
+        {
+            get; set;
+        }
+
         public Detective(string id, string name) : base(id, name)
         {
 

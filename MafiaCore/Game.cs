@@ -56,6 +56,7 @@ namespace MafiaCore
             List<string> activePlayers,
             string mafiaTarget,
             string doctorTarget,
+            string detectiveTarget,
             string voteTarget,
             GameState currentState
             )
@@ -96,7 +97,7 @@ namespace MafiaCore
                     else if (detectiveIdList != null && detectiveIdList.Contains(newPlayer.Id))
                     {
                         var detective = new Detective(newPlayer);
-                        detective.Target = null;
+                        detective.Target = detectiveTarget;
                         Detectives.Add(detective);
                         PlayerMapping[newPlayer.Id] = detective;
                         ActivePlayers.Add(detective);
@@ -257,9 +258,12 @@ namespace MafiaCore
             {
                 return;
             }
-            int numMafiasAndDoctors = numTotalPlayers / 3;
-            RolesToAssign[Role.Doctor] = 0;
-            RolesToAssign[Role.Mafia] = numMafiasAndDoctors;
+
+            // TODO: implement group messages to Mafia
+            //int numMafiasAndDoctors = numTotalPlayers / 3;
+            RolesToAssign[Role.Doctor] = 1;
+            RolesToAssign[Role.Mafia] = 1;
+            RolesToAssign[Role.Detective] = 1;
         }
 
         public void ExecuteMafiasWonPhase()

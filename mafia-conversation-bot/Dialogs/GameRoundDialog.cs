@@ -130,7 +130,7 @@ namespace Microsoft.BotBuilderSamples
             // await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
             var _gameData = stepContext.Values[currentGame] as ConversationData;
             var mafiaGame = new Game(_gameData.UserProfileMap, _gameData.RoleToUsers, _gameData.ActivePlayers,
-                _gameData.MafiaTarget, _gameData.DoctorTarget, _gameData.VoteTarget, _gameData.CurrentState);
+                _gameData.MafiaTarget, _gameData.DoctorTarget, _gameData.DetectiveTarget, _gameData.VoteTarget, _gameData.CurrentState);
             mafiaGame.AssignTargetToPlayers(kill_choice, Role.Mafia);
             mafiaGame.AssignTargetToPlayers(doctor_choice, Role.Doctor);
             mafiaGame.ExecuteNightPhase();
@@ -139,6 +139,7 @@ namespace Microsoft.BotBuilderSamples
             // clean up and save the latest gameData to ConversationState
             _gameData.MafiaTarget = null;
             _gameData.DoctorTarget = null;
+            _gameData.DetectiveTarget = null;
             stepContext.Values[currentGame] = _gameData;
             await convStateAccessor.SetAsync(stepContext.Context, _gameData, cancellationToken);
 
@@ -193,7 +194,7 @@ namespace Microsoft.BotBuilderSamples
 
             var _gameData = stepContext.Values[currentGame] as ConversationData;
             var mafiaGame = new Game(_gameData.UserProfileMap, _gameData.RoleToUsers, _gameData.ActivePlayers,
-                _gameData.MafiaTarget, _gameData.DoctorTarget, _gameData.VoteTarget, _gameData.CurrentState);
+                _gameData.MafiaTarget, _gameData.DoctorTarget, _gameData.DetectiveTarget, _gameData.VoteTarget, _gameData.CurrentState);
             var choiceName = choice != null && mafiaGame.PlayerMapping.ContainsKey(choice) ?
                 mafiaGame.PlayerMapping[choice].Name :
                 "no one";
