@@ -26,6 +26,7 @@ namespace Microsoft.BotBuilderSamples
 
         public string MafiaTarget { get; set; }
         public string DoctorTarget { get; set; }
+        public string DetectiveTarget { get; set; }
 
         public string VoteTarget { get; set; }
 

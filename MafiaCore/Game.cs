@@ -35,9 +35,9 @@ namespace MafiaCore
                 return _rolesToAssign ?? (_rolesToAssign =
                     new Dictionary<Role, int>
                     {
+                        { Role.Detective, 1 },
                         { Role.Mafia, 1 },
-                        { Role.Doctor, 1 },
-                        { Role.Detective, 1 }
+                        { Role.Doctor, 1 }
                     });
             }
             set
@@ -63,8 +63,10 @@ namespace MafiaCore
             CurrentState = currentState;
             List<string> mafiaIdList;  // all mafias
             List<string> doctorIdList;
+            List<string> detectiveIdList;
             roleToUsers.TryGetValue(Role.Mafia.ToString(), out mafiaIdList);
             roleToUsers.TryGetValue(Role.Doctor.ToString(), out doctorIdList);
+            roleToUsers.TryGetValue(Role.Detective.ToString(), out detectiveIdList);
 
             foreach (KeyValuePair<string, string> idWithName in userProfileMap)
             {
@@ -75,7 +77,6 @@ namespace MafiaCore
 
                 if (activePlayers.Contains(newPlayer.Id))
                 {
-                    // TODO: Sheriff
                     if (mafiaIdList != null && mafiaIdList.Contains(newPlayer.Id))
                     {
                         var mafia = new Mafia(newPlayer);
@@ -91,6 +92,14 @@ namespace MafiaCore
                         Doctors.Add(doctor);
                         PlayerMapping[newPlayer.Id] = doctor;
                         ActivePlayers.Add(doctor);
+                    }
+                    else if (detectiveIdList != null && detectiveIdList.Contains(newPlayer.Id))
+                    {
+                        var detective = new Detective(newPlayer);
+                        detective.Target = null;
+                        Detectives.Add(detective);
+                        PlayerMapping[newPlayer.Id] = detective;
+                        ActivePlayers.Add(detective);
                     }
                     else
                     {
@@ -345,12 +354,16 @@ namespace MafiaCore
             if (playerToEliminate.Role == Role.Mafia)
             {
                 Mafias.Remove((Mafia)playerToEliminate);
-                return;
             }
-            if (playerToEliminate.Role == Role.Doctor)
+            else if (playerToEliminate.Role == Role.Doctor)
             {
                 Doctors.Remove((Doctor)playerToEliminate);
             }
+            else if (playerToEliminate.Role == Role.Detective)
+            {
+                Detectives.Remove((Detective)playerToEliminate);
+            }
+
         }
 
         internal bool AllMafiasCaught()
@@ -358,7 +371,7 @@ namespace MafiaCore
             return Mafias.Count == 0;
         }
 
-        internal bool AllCivilliansEliminated()
+        internal bool AllCiviliansEliminated()
         {
             return Mafias.Count >= ActivePlayers.Where(player => player.Role != Role.Mafia).ToList().Count;
         }
@@ -370,7 +383,7 @@ namespace MafiaCore
             {
                 this.CurrentState = GameState.MafiasLost;
             }
-            else if (AllCivilliansEliminated())
+            else if (AllCiviliansEliminated())
             {
                 this.CurrentState = GameState.MafiasWon;
             }
