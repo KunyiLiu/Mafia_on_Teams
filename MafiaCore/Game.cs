@@ -17,6 +17,8 @@ namespace MafiaCore
 
         public HashSet<Doctor> Doctors { get; set; } = new HashSet<Doctor>();
 
+        public HashSet<Detective> Detectives { get; set; } = new HashSet<Detective>();
+
         public Dictionary<string, Player> PlayerMapping { get; set; } = new Dictionary<string, Player>();
 
         private Dictionary<Role, int> _rolesToAssign;
@@ -29,7 +31,7 @@ namespace MafiaCore
                     {
                         { Role.Mafia, 1 },
                         { Role.Doctor, 1 },
-                        //{ Role.Sheriff, 1 }
+                        { Role.Detective, 1 }
                     });
             }
             set
@@ -123,7 +125,7 @@ namespace MafiaCore
                     {
                         foreach (Player p in inactivePlayers)
                         {
-                            if (p.Name == "Kunyi Liu")
+                            if (p.Name == "Nanhua Jin")
                             {
                                 p.Role = role;
                                 p.Active = true;
@@ -158,6 +160,13 @@ namespace MafiaCore
                         PlayerMapping[playerToModify.Id] = doctor;
                         ActivePlayers.Add(doctor);
                     }
+                    else if (role == Role.Detective)
+                    {
+                        Detective detective = new Detective(playerToModify);
+                        Detectives.Add(detective);
+                        PlayerMapping[playerToModify.Id] = detective;
+                        ActivePlayers.Add(detective);
+                    }
                 }
             }
 
@@ -170,7 +179,6 @@ namespace MafiaCore
                 ActivePlayers.Add(villager);
             }
 
-            ShowRolesToPlayers();
             CurrentState = GameState.Night;
         }
 
@@ -194,6 +202,7 @@ namespace MafiaCore
             ChangeGameState();
             AssignTargetToPlayers(null, Role.Mafia);
             AssignTargetToPlayers(null, Role.Doctor);
+            AssignTargetToPlayers(null, Role.Detective);
         }
 
         public void ExecuteVotingPhase()
@@ -246,6 +255,10 @@ namespace MafiaCore
             else if (playerRole == Role.Doctor)
             {
                 foreach (Doctor doctor in Doctors) doctor.Target = targetId;
+            }
+            else if (playerRole == Role.Detective)
+            {
+                foreach (Detective detective in Detectives) detective.Target = targetId;
             }
         }
 
@@ -348,12 +361,6 @@ namespace MafiaCore
 
             Player playerToEliminate = PlayerMapping[playerVote];
             EliminatePlayer(playerToEliminate);
-        }
-
-        // TODO: call this function after roles have been assigned to relay information to players
-        private void ShowRolesToPlayers()
-        {
-
         }
     }
 }

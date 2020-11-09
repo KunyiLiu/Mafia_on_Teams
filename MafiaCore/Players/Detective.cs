@@ -1,25 +1,27 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
 
 namespace MafiaCore.Players
 {
-    public class Doctor : Villager
+    public class Detective : Villager
     {
         /// <summary>
-        /// The Teams ID of the assigned target the player chose to heal
+        /// The Teams ID of the assigned target the player chose to inspect
         /// </summary>
         public string Target
         {
             get; set;
         }
 
-        public Doctor(string id, string name) : base(id, name)
+        public Detective(string id, string name) : base(id, name)
         {
 
         }
 
-        public Doctor(Player player) : base(player)
+        public Detective(Player player) : base(player)
         {
-            Role = Role.Doctor;
+            Role = Role.Detective;
         }
 
         public override void DoAction(HashSet<Player> activePlayers)
