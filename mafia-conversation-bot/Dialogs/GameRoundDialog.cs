@@ -88,7 +88,8 @@ namespace Microsoft.BotBuilderSamples
                 return await stepContext.NextAsync(stepContextResult, cancellationToken);
             }
 
-            await stepContext.Context.SendActivityAsync("It's night time.");
+            var msg = "┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈🌜🌜 It's night time 🌛🌛┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈   \n Special roles, it's time for you to take actions now.";
+            await stepContext.Context.SendActivityAsync(msg);
 
             // Create the list of options to choose from.
             var options = CreatePromptOptions(_gameData);
@@ -111,7 +112,6 @@ namespace Microsoft.BotBuilderSamples
 
             if (stepContext.Result != null)
             {
-                Console.WriteLine("+++++++NightValidationStepAsync: Get result form stepContext+++++++++++");
                 kill_choice = (string)(stepContext.Result as JObject)[KillChoice];
                 doctor_choice = (string)(stepContext.Result as JObject)[DoctorChoice];
             }
@@ -131,19 +131,21 @@ namespace Microsoft.BotBuilderSamples
             mafiaGame.AssignTargetToPlayers(doctor_choice, Role.Doctor);
             mafiaGame.ExecuteNightPhase();
 
-            // clean up 
-            convInfo.MafiaTarget = null;
-            convInfo.DoctorTarget = null;
-            await convStateAccessor.SetAsync(stepContext.Context, convInfo, cancellationToken);
+            _gameData = DialogHelper.ConvertConversationState(mafiaGame);
+            // clean up and save the latest gameData to ConversationState
+            _gameData.MafiaTarget = null;
+            _gameData.DoctorTarget = null;
+            stepContext.Values[currentGame] = _gameData;
+            await convStateAccessor.SetAsync(stepContext.Context, _gameData, cancellationToken);
 
-            stepContext.Values[currentGame] = DialogHelper.ConvertConversationState(mafiaGame);
+            // return await stepContext.NextAsync(mafiaGame.Mafias.FirstOrDefault()?.Target, cancellationToken);
             if (mafiaGame.CurrentState == GameState.MafiasWon)
             {
-                return await stepContext.EndDialogAsync("Mafia win", cancellationToken);
+                return await stepContext.EndDialogAsync("**Mafias** win", cancellationToken);
             }
             else if (mafiaGame.CurrentState == GameState.MafiasLost)
             {
-                return await stepContext.EndDialogAsync("Villagers win", cancellationToken);
+                return await stepContext.EndDialogAsync("**Villagers** win", cancellationToken);
             }
             else
             {
@@ -160,7 +162,9 @@ namespace Microsoft.BotBuilderSamples
             var _gameData = stepContext.Values[currentGame] as ConversationData;
             var killedPlayerName = !string.IsNullOrEmpty(killed) ? _gameData.UserProfileMap[killed] : "no one";
 
-            await stepContext.Context.SendActivityAsync("It's daytime now. Last night, " + killedPlayerName + " was killed.");
+            var msg = $"┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈🌞🌞 It's daytime now 🌞🌞┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈   \n  " +
+                $"Last night, {killedPlayerName} was killed.";
+            await stepContext.Context.SendActivityAsync(MessageFactory.Text(msg));
 
             // Create the list of options to choose from.
             var options = CreatePromptOptions(_gameData, true);
@@ -173,6 +177,7 @@ namespace Microsoft.BotBuilderSamples
             CancellationToken cancellationToken)
         {
             Console.WriteLine("+++++++DayValidationStepAsync+++++++++++");
+            var convStateAccessor = _conversationState.CreateProperty<ConversationData>(nameof(ConversationData));
             // Retrieve their selection list, the choice they made, and whether they chose to finish.
             string choice = (string)(stepContext.Result as JObject)[VoteChoice];
 
@@ -193,7 +198,10 @@ namespace Microsoft.BotBuilderSamples
             mafiaGame.AssignVoteToPlayers(choice);
             mafiaGame.ExecuteVotingPhase();
 
-            stepContext.Values[currentGame] = DialogHelper.ConvertConversationState(mafiaGame);
+            _gameData = DialogHelper.ConvertConversationState(mafiaGame);
+            stepContext.Values[currentGame] = _gameData;
+            await convStateAccessor.SetAsync(stepContext.Context, _gameData, cancellationToken);
+
             return await stepContext.NextAsync(null, cancellationToken);
         }
 
@@ -204,13 +212,14 @@ namespace Microsoft.BotBuilderSamples
             // Retrieve their selection list, the choice they made, and whether they chose to finish.
             var _gameData = stepContext.Values[currentGame] as ConversationData;
 
+            // return await stepContext.ReplaceDialogAsync(nameof(GameRoundDialog), _gameData, cancellationToken);
             if (_gameData.CurrentState == GameState.MafiasWon)
             {
-                return await stepContext.EndDialogAsync("Mafia win", cancellationToken);
+                return await stepContext.EndDialogAsync("**Mafias** win", cancellationToken);
             }
             else if (_gameData.CurrentState == GameState.MafiasLost)
             {
-                return await stepContext.EndDialogAsync("Villagers win", cancellationToken);
+                return await stepContext.EndDialogAsync("**Villagers** win", cancellationToken);
             }
             else
             {
@@ -253,11 +262,11 @@ namespace Microsoft.BotBuilderSamples
                 var doctors = new List<TeamsChannelAccount>();
                 foreach (var member in members)
                 {
-                    if (activeMafiaIds.Contains(member.Id))
+                    if (activeMafiaIds != null && activeMafiaIds.Contains(member.Id))
                     {
                         mafias.Add(member);
                     }
-                    else if (activeDoctorIds.Contains(member.Id))
+                    else if (activeDoctorIds != null && activeDoctorIds.Contains(member.Id))
                         doctors.Add(member);
                 }
                 // await stepContext.Context.SendActivityAsync(MessageFactory.Attachment(mcardAttachment), cancellationToken);

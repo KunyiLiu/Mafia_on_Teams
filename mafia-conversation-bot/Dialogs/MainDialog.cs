@@ -66,7 +66,8 @@ namespace Microsoft.BotBuilderSamples
 
             string[] options = new string[] { "New Game: Villager + Doctor + Mafia", "Not Interested" };
             var message = @"Hello, we are a Teams Chat Bot for playing Magia Game, designed and developed by DRAMA team.
-                If you are interested in playing with our App, please select one of the role patterns to start a new game.";
+                If you are interested in playing with our App, please select one of the role patterns to start a new game.
+                ";
             var promptOptions = new PromptOptions
             {
                 Prompt = MessageFactory.Text(message),
@@ -99,7 +100,8 @@ namespace Microsoft.BotBuilderSamples
                 return await stepContext.EndDialogAsync("Manual End", cancellationToken);
             }
 
-            await stepContext.Context.SendActivityAsync("The game starts, assigning roles.");
+            await stepContext.Context.SendActivityAsync("Honored to be your moderator today. Let's start the new game.   \n"
+                + "We are now assigning roles. Please wait for a few seconds😊");
 
             List<TeamsChannelAccount> members = await DialogHelper.GetPagedMembers(stepContext.Context, cancellationToken);
             // TODO: update valid range
@@ -135,13 +137,13 @@ namespace Microsoft.BotBuilderSamples
             Console.WriteLine("+++++++FinalStepAsync+++++++++++");
             var message = (string)stepContext.Result;
 
-            string status = "The game ends, " + message + "!";
+            string status = "🎊🎊🎊  The game ends, " + message + "!  🎊🎊🎊";
             await stepContext.Context.SendActivityAsync(status);
 
             var accessor = _conversationState.CreateProperty<ConversationData>(nameof(ConversationData));
             var gameData = await accessor.GetAsync(stepContext.Context, () => new ConversationData());
 
-            await stepContext.Context.SendActivityAsync("Who were the special players?");
+            await stepContext.Context.SendActivityAsync("What to know who were the special players?");
             foreach (var pair in gameData.RoleToUsers)
             {
                 Logger.LogInformation("The role is {0}", pair.Key);
@@ -179,7 +181,7 @@ namespace Microsoft.BotBuilderSamples
             {
                 // Find player in activeplayers
                 Player player = mafiaGame.ActivePlayers.Where(p => p.Id == teamMember.Id.ToString()).First();
-                string message = $"Hello {teamMember.Name}, you are {player.Role}.";
+                string message = $"Hello {teamMember.Name}, you are <b>{player.Role}</b>.";
 
                 var card = new HeroCard();
 

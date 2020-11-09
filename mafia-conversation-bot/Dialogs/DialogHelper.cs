@@ -43,8 +43,7 @@ namespace Microsoft.BotBuilderSamples
                 {
                     gameData.RoleToUsers[roleName] = new List<string>();
                 }
-                if (gameData.ActivePlayers.Contains(pair.Key))
-                    gameData.RoleToUsers[roleName].Add(pair.Key);
+                gameData.RoleToUsers[roleName].Add(pair.Key);
             }
             gameData.IsGameStarted = true;
             gameData.VoteTarget = mafiaGame.ActivePlayers.FirstOrDefault()?.Vote;

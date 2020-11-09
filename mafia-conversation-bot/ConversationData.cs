@@ -15,7 +15,7 @@ namespace Microsoft.BotBuilderSamples
         public Dictionary<string, string> UserProfileMap { get; set; } = new Dictionary<string, string>();
 
         /// <summary>
-        /// Map between player rolw to a list of active user Ids
+        /// Map between player role to a list of users whether they are alive or not 
         /// </summary>
         public Dictionary<string, List<string>> RoleToUsers { get; set; } = new Dictionary<string, List<string>>();
 
