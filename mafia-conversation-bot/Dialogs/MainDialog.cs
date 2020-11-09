@@ -168,14 +168,11 @@ namespace Microsoft.BotBuilderSamples
             teamsChannelId ??= "msteams";
             var serviceUrl = turnContext.Activity.ServiceUrl;
             var credentials = new MicrosoftAppCredentials(_appId, _appPassword);
-            var mafiaMemberMap = members.ToDictionary(p => p.UserPrincipalName, p => p.Name, StringComparer.OrdinalIgnoreCase);
+
+            var mafiaMemberMap = mafiaGame.Mafias.ToDictionary(p => p.Id, p => p.Name, StringComparer.OrdinalIgnoreCase);
             string openUrlForMafia = "https://teams.microsoft.com/l/chat/0/0?users={0}&topicName=Mafia%20Group&message=Hi%2C%20let%27s%20start%20discussing";
             // TODO: will change it later
-            openUrlForMafia = mafiaMemberMap.Count <= 1 ?
-                String.Format(openUrlForMafia, "nanhua.jin@microsoft.com,supratik.neupane@microsoft.com") :
-                String.Format(openUrlForMafia, String.Join(",", mafiaMemberMap.Keys));
-
-            IEnumerable<Player> mafiaMembers = mafiaGame.ActivePlayers.Where(p => p.Role == Role.Mafia);
+            openUrlForMafia = String.Format(openUrlForMafia, String.Join(",", mafiaMemberMap.Keys));
 
             foreach (TeamsChannelAccount teamMember in members)
             {
@@ -185,12 +182,12 @@ namespace Microsoft.BotBuilderSamples
 
                 var card = new HeroCard();
 
-                if (player.Role == Role.Mafia && mafiaMembers.Count() > 1)
+                if (player.Role == Role.Mafia && mafiaMemberMap.Count > 1)
                 {
                     message += " Your other mafia members: ";
                     message += String.Join(
                         "",
-                        mafiaMemberMap.Where(m => m.Key != teamMember.Name).Select(m => $"{m.Value}, ")
+                        mafiaMemberMap.Where(p => p.Key != teamMember.Id).Select(p => $"{p.Value}, ")
                         );
                     message = message.Substring(0, message.Length - 2);
 
