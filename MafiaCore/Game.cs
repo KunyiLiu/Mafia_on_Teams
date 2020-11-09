@@ -13,8 +13,14 @@ namespace MafiaCore
 
         public HashSet<Player> ActivePlayers { get; set; } = new HashSet<Player>();
 
+        /// <summary>
+        /// Active Mafias
+        /// </summary>
         public HashSet<Mafia> Mafias { get; set; } = new HashSet<Mafia>();
 
+        /// <summary>
+        /// Active Doctors
+        /// </summary>
         public HashSet<Doctor> Doctors { get; set; } = new HashSet<Doctor>();
 
         public HashSet<Detective> Detectives { get; set; } = new HashSet<Detective>();
@@ -55,7 +61,7 @@ namespace MafiaCore
             )
         {
             CurrentState = currentState;
-            List<string> mafiaIdList;  // active mafias
+            List<string> mafiaIdList;  // all mafias
             List<string> doctorIdList;
             roleToUsers.TryGetValue(Role.Mafia.ToString(), out mafiaIdList);
             roleToUsers.TryGetValue(Role.Doctor.ToString(), out doctorIdList);
@@ -67,33 +73,37 @@ namespace MafiaCore
                 newPlayer.Vote = voteTarget;
                 newPlayer.Active = true;
 
-                // TODO: Sheriff
-                if (mafiaIdList.Any() && mafiaIdList.Contains(newPlayer.Id))
+                if (activePlayers.Contains(newPlayer.Id))
                 {
-                    var mafia = new Mafia(newPlayer);
-                    mafia.Target = mafiaTarget;
-                    Mafias.Add(mafia);
-                    PlayerMapping[newPlayer.Id] = mafia;
-                    ActivePlayers.Add(mafia);
-                }
-                else if (doctorIdList.Any() && doctorIdList.Contains(newPlayer.Id))
-                {
-                    var doctor = new Doctor(newPlayer);
-                    doctor.Target = doctorTarget;
-                    Doctors.Add(doctor);
-                    PlayerMapping[newPlayer.Id] = doctor;
-                    ActivePlayers.Add(doctor);
-                }
-                else if (activePlayers.Contains(newPlayer.Id))
-                {
-                    var village = new Villager(newPlayer);
-                    PlayerMapping[newPlayer.Id] = village;
-                    ActivePlayers.Add(village);
+                    // TODO: Sheriff
+                    if (mafiaIdList != null && mafiaIdList.Contains(newPlayer.Id))
+                    {
+                        var mafia = new Mafia(newPlayer);
+                        mafia.Target = mafiaTarget;
+                        Mafias.Add(mafia);
+                        PlayerMapping[newPlayer.Id] = mafia;
+                        ActivePlayers.Add(mafia);
+                    }
+                    else if (doctorIdList != null && doctorIdList.Contains(newPlayer.Id))
+                    {
+                        var doctor = new Doctor(newPlayer);
+                        doctor.Target = doctorTarget;
+                        Doctors.Add(doctor);
+                        PlayerMapping[newPlayer.Id] = doctor;
+                        ActivePlayers.Add(doctor);
+                    }
+                    else
+                    {
+                        var village = new Villager(newPlayer);
+                        PlayerMapping[newPlayer.Id] = village;
+                        ActivePlayers.Add(village);
+                    }
                 }
                 else
                 {
+                    newPlayer.Active = false;
                     PlayerMapping[newPlayer.Id] = newPlayer;
-                }  
+                }
             }
         }
 

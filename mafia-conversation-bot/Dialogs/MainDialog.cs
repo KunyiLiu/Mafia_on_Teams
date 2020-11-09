@@ -66,7 +66,8 @@ namespace Microsoft.BotBuilderSamples
 
             string[] options = new string[] { "New Game: Detective + Doctor + Mafia", "Not Interested" };
             var message = @"Hello, we are a Teams Chat Bot for playing Magia Game, designed and developed by DRAMA team.
-                If you are interested in playing with our App, please select one of the role patterns to start a new game.";
+                If you are interested in playing with our App, please select one of the role patterns to start a new game.
+                ";
             var promptOptions = new PromptOptions
             {
                 Prompt = MessageFactory.Text(message),
@@ -99,7 +100,8 @@ namespace Microsoft.BotBuilderSamples
                 return await stepContext.EndDialogAsync("Manual End", cancellationToken);
             }
 
-            await stepContext.Context.SendActivityAsync("The game starts, assigning roles.");
+            await stepContext.Context.SendActivityAsync("Honored to be your moderator today. Let's start the new game.   \n"
+                + "We are now assigning roles. Please wait for a few seconds😊");
 
             List<TeamsChannelAccount> members = await DialogHelper.GetPagedMembers(stepContext.Context, cancellationToken);
             // TODO: update valid range
@@ -135,13 +137,13 @@ namespace Microsoft.BotBuilderSamples
             Console.WriteLine("+++++++FinalStepAsync+++++++++++");
             var message = (string)stepContext.Result;
 
-            string status = "The game ends, " + message + "!";
+            string status = "🎊🎊🎊  The game ends, " + message + "!  🎊🎊🎊";
             await stepContext.Context.SendActivityAsync(status);
 
             var accessor = _conversationState.CreateProperty<ConversationData>(nameof(ConversationData));
             var gameData = await accessor.GetAsync(stepContext.Context, () => new ConversationData());
 
-            await stepContext.Context.SendActivityAsync("Who were the special players?");
+            await stepContext.Context.SendActivityAsync("What to know who were the special players?");
             foreach (var pair in gameData.RoleToUsers)
             {
                 Logger.LogInformation("The role is {0}", pair.Key);
@@ -166,29 +168,26 @@ namespace Microsoft.BotBuilderSamples
             teamsChannelId ??= "msteams";
             var serviceUrl = turnContext.Activity.ServiceUrl;
             var credentials = new MicrosoftAppCredentials(_appId, _appPassword);
-            var mafiaMemberMap = members.ToDictionary(p => p.UserPrincipalName, p => p.Name, StringComparer.OrdinalIgnoreCase);
+
+            var mafiaMemberMap = mafiaGame.Mafias.ToDictionary(p => p.Id, p => p.Name, StringComparer.OrdinalIgnoreCase);
             string openUrlForMafia = "https://teams.microsoft.com/l/chat/0/0?users={0}&topicName=Mafia%20Group&message=Hi%2C%20let%27s%20start%20discussing";
             // TODO: will change it later
-            openUrlForMafia = mafiaMemberMap.Count <= 1 ?
-                String.Format(openUrlForMafia, "nanhua.jin@microsoft.com,supratik.neupane@microsoft.com") :
-                String.Format(openUrlForMafia, String.Join(",", mafiaMemberMap.Keys));
-
-            IEnumerable<Player> mafiaMembers = mafiaGame.ActivePlayers.Where(p => p.Role == Role.Mafia);
+            openUrlForMafia = String.Format(openUrlForMafia, String.Join(",", mafiaMemberMap.Keys));
 
             foreach (TeamsChannelAccount teamMember in members)
             {
                 // Find player in activeplayers
                 Player player = mafiaGame.ActivePlayers.Where(p => p.Id == teamMember.Id.ToString()).First();
-                string message = $"Hello {teamMember.Name}, you are {player.Role}.";
+                string message = $"Hello {teamMember.Name}, you are <b>{player.Role}</b>.";
 
                 var card = new HeroCard();
 
-                if (player.Role == Role.Mafia && mafiaMembers.Count() > 1)
+                if (player.Role == Role.Mafia && mafiaMemberMap.Count > 1)
                 {
                     message += " Your other mafia members: ";
                     message += String.Join(
                         "",
-                        mafiaMemberMap.Where(m => m.Key != teamMember.Name).Select(m => $"{m.Value}, ")
+                        mafiaMemberMap.Where(p => p.Key != teamMember.Id).Select(p => $"{p.Value}, ")
                         );
                     message = message.Substring(0, message.Length - 2);
 
