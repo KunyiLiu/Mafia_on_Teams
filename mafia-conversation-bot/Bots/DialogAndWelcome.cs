@@ -1,6 +1,7 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,8 +15,14 @@ namespace Microsoft.BotBuilderSamples
 {
     public class DialogAndWelcomeBot<T> : DialogBot<T> where T : Dialog
     {
-        public DialogAndWelcomeBot(IConfiguration config, ConversationState conversationState, UserState userState, T dialog, ILogger<DialogBot<T>> logger)
-            : base(config, conversationState, userState, dialog, logger)
+        public DialogAndWelcomeBot(
+            IConfiguration config,
+            ConversationState conversationState,
+            UserState userState,
+            T dialog,
+            ILogger<DialogBot<T>> logger,
+            ConcurrentDictionary<string, ConversationReference> conversationReferences)
+            : base(config, conversationState, userState, dialog, logger, conversationReferences)
         {
         }
 
