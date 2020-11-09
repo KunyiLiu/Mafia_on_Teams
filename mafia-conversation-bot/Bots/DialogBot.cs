@@ -106,23 +106,23 @@ namespace Microsoft.BotBuilderSamples
                     List<string> activeDetectiveIdList = convInfo.RoleToUsers.GetValueOrDefault(Role.Detective.ToString(), new List<string>());
                     activeDetectiveIdList = activeDetectiveIdList.Where(id => convInfo.ActivePlayers.Contains(id)).ToList();
 
-                    //if (activeDoctorIdList.Any() && activeDetectiveIdList.Any())
-                    //{
-                    //    isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null && convInfo.DoctorTarget != null && convInfo.DetectiveTarget != null);
-                    //}
-                    //else if (activeDetectiveIdList.Any())
-                    //{
-                    //    isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null && convInfo.DetectiveTarget != null);
-                    //}
-                    //else if (activeDoctorIdList.Any())
-                    //{
-                    //    isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null && convInfo.DoctorTarget != null);
-                    //}
-                    //// If doctor and detective are dead
-                    //else
-                    //{
-                    //    isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null);
-                    //}
+                    if (activeDoctorIdList.Any() && activeDetectiveIdList.Any())
+                    {
+                        isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null && convInfo.DoctorTarget != null && convInfo.DetectiveTarget != null);
+                    }
+                    else if (activeDetectiveIdList.Any())
+                    {
+                        isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null && convInfo.DetectiveTarget != null);
+                    }
+                    else if (activeDoctorIdList.Any())
+                    {
+                        isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null && convInfo.DoctorTarget != null);
+                    }
+                    // If doctor and detective are dead
+                    else
+                    {
+                        isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null);
+                    }
                     isNightChoiceIncomplete &= !(convInfo.DetectiveTarget != null);
                 }
 

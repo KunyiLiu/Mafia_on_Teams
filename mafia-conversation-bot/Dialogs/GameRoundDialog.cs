@@ -133,7 +133,12 @@ namespace Microsoft.BotBuilderSamples
                 _gameData.MafiaTarget, _gameData.DoctorTarget, _gameData.DetectiveTarget, _gameData.VoteTarget, _gameData.CurrentState);
             mafiaGame.AssignTargetToPlayers(kill_choice, Role.Mafia);
             mafiaGame.AssignTargetToPlayers(doctor_choice, Role.Doctor);
+            mafiaGame.AssignTargetToPlayers(detective_choice, Role.Detective);
             mafiaGame.ExecuteNightPhase();
+
+            HashSet<Detective> detectives = mafiaGame.Detectives;
+            List<Detective> aliveDetectives = detectives.Where(a => _gameData.ActivePlayers.Contains(a.Id)).ToList();
+            await SendDetectiveResponses(stepContext.Context, _gameData, cancellationToken, aliveDetectives);
 
             _gameData = DialogHelper.ConvertConversationState(mafiaGame);
             // clean up and save the latest gameData to ConversationState
@@ -242,6 +247,64 @@ namespace Microsoft.BotBuilderSamples
             return dict.Where(pair => pair.Value == "Mafia").Count();
         }
 
+        private async Task SendDetectiveResponses(ITurnContext context, ConversationData gameData, CancellationToken cancellationToken, List<Detective> activeDetectives)
+        {
+            if (activeDetectives == null || activeDetectives.Count == 0)
+            {
+                return;
+            }
+
+            List<TeamsChannelAccount> members = await DialogHelper.GetPagedMembers(context, cancellationToken);
+
+            var teamsChannelId = context.Activity.TeamsGetChannelId();
+            teamsChannelId ??= "msteams";
+            var serviceUrl = context.Activity.ServiceUrl;
+            var credentials = new MicrosoftAppCredentials(_appId, _appPassword);
+
+            gameData.RoleToUsers.TryGetValue(Role.Detective.ToString(), out List<string> activeDetectiveIds);
+
+            foreach (TeamsChannelAccount member in members)
+            {
+                foreach (Detective detective in activeDetectives)
+                {
+                    if (detective.Id == member.Id)
+                    {
+                        string message = $"The team member you inspected is a <b>{detective.TargetRole}</b>.";
+
+                        var conversationParameters = new ConversationParameters
+                        {
+                            IsGroup = false,
+                            Bot = context.Activity.Recipient,
+                            Members = new ChannelAccount[] { member },
+                            TenantId = context.Activity.Conversation.TenantId,
+                        };
+
+                        Task conv = ((BotFrameworkAdapter)context.Adapter).CreateConversationAsync(
+                            teamsChannelId,
+                            serviceUrl,
+                            credentials,
+                            conversationParameters,
+                            async (t1, c1) =>
+                            {
+                                ConversationReference conversationReference = t1.Activity.GetConversationReference();
+
+                                await ((BotFrameworkAdapter)context.Adapter).ContinueConversationAsync(
+                                    _appId,
+                                    conversationReference,
+                                    async (t2, c2) =>
+                                    {
+                                        await t2.SendActivityAsync(message);
+                                    },
+                                    cancellationToken);
+                            },
+                            cancellationToken);
+
+                        conv.Wait();
+                    }
+                }
+            }
+        }
+
         private async Task<DialogTurnResult> PromptWithAdaptiveCardAsync(
             WaterfallStepContext stepContext,
             ConversationData gameData,
@@ -261,9 +324,12 @@ namespace Microsoft.BotBuilderSamples
                 var detcardAttachment = MakeAdaptiveCard("Who you want to inspect? For Detective only", DetectiveChoice, choices, sendBackData);
 
                 List<TeamsChannelAccount> members = await DialogHelper.GetPagedMembers(stepContext.Context, cancellationToken);
-                gameData.RoleToUsers.TryGetValue(Role.Mafia.ToString(), out List<string> activeMafiaIds);
-                gameData.RoleToUsers.TryGetValue(Role.Doctor.ToString(), out List<string> activeDoctorIds);
-                gameData.RoleToUsers.TryGetValue(Role.Detective.ToString(), out List<string> activeDetectiveIds);
+                var activeMafiaIds = gameData.RoleToUsers.GetValueOrDefault(Role.Mafia.ToString(), new List<string>());
+                activeMafiaIds = activeMafiaIds.Where(id => gameData.ActivePlayers.Contains(id)).ToList();
+                var activeDoctorIds = gameData.RoleToUsers.GetValueOrDefault(Role.Doctor.ToString(), new List<string>());
+                activeDoctorIds = activeDoctorIds.Where(id => gameData.ActivePlayers.Contains(id)).ToList();
+                var activeDetectiveIds = gameData.RoleToUsers.GetValueOrDefault(Role.Detective.ToString(), new List<string>());
+                activeDetectiveIds = activeDetectiveIds.Where(id => gameData.ActivePlayers.Contains(id)).ToList();
 
                 var mafias = new List<TeamsChannelAccount>();
                 var doctors = new List<TeamsChannelAccount>();

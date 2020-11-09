@@ -36,9 +36,13 @@ namespace MafiaCore.Players
                 if (player is Mafia)
                 {
                     Mafia mafia = (Mafia)player;
-                    if (mafia.Target == Target)
+                    if (mafia.Id == Target)
                     {
-                        mafia.Target = null; // Reset Mafia target to 0 to nullify the kill
+                        TargetRole = "Mafia";
+                    }
+                    else
+                    {
+                        TargetRole = "Villager";
                     }
                 }
             }
