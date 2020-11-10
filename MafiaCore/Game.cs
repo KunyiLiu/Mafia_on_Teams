@@ -140,45 +140,6 @@ namespace MafiaCore
                 if (inactivePlayers.Count == 0) break;
                 for (int i = 0; i < RolesToAssign[role]; i++)
                 {
-                    //remove later
-                    if (role == Role.Mafia && i == 0)
-                    {
-                        foreach (Player p in inactivePlayers)
-                        {
-                            if (p.Name == "Kunyi Liu")
-                            {
-                                p.Role = role;
-                                p.Active = true;
-                                inactivePlayers.Remove(p);
-
-                                Mafia mafia = new Mafia(p);
-                                Mafias.Add(mafia);
-                                PlayerMapping[p.Id] = mafia;
-                                ActivePlayers.Add(mafia);
-                                break;
-                            }
-                        }
-                        continue;
-                    }
-                    if (role == Role.Detective)
-                    {
-                        foreach (Player p in inactivePlayers)
-                        {
-                            if (p.Name == "Nanhua Jin")
-                            {
-                                p.Role = role;
-                                p.Active = true;
-                                inactivePlayers.Remove(p);
-
-                                Detective detective = new Detective(p);
-                                Detectives.Add(detective);
-                                PlayerMapping[p.Id] = detective;
-                                ActivePlayers.Add(detective);
-                                break;
-                            }
-                        }
-                        continue;
-                    }
                     Player playerToModify = inactivePlayers[random.Next(inactivePlayers.Count)];
 
                     playerToModify.Role = role;

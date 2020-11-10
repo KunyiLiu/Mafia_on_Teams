@@ -123,7 +123,6 @@ namespace Microsoft.BotBuilderSamples
                     {
                         isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null);
                     }
-                    isNightChoiceIncomplete &= !(convInfo.DetectiveTarget != null);
                 }
 
                 if (isNightChoiceIncomplete)
@@ -240,6 +239,7 @@ namespace Microsoft.BotBuilderSamples
             if (!userInfo.IsActive && convInfo.IsGameStarted)
             {
                 await turnContext.SendActivityAsync("❗ Sorry, you are dead. Please try not doing any operation.");
+                await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>(nameof(DialogState)), cancellationToken);
             }
             // else if (isMissChose)
             // {
