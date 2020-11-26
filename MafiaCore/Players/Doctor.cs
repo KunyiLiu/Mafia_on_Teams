@@ -5,7 +5,7 @@ namespace MafiaCore.Players
     public class Doctor : Villager
     {
         /// <summary>
-        /// The Teams ID of the assigned target the player chose to kill
+        /// The Teams ID of the assigned target the player chose to heal
         /// </summary>
         public string Target
         {

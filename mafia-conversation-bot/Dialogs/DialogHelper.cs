@@ -49,6 +49,7 @@ namespace Microsoft.BotBuilderSamples
             gameData.VoteTarget = mafiaGame.ActivePlayers.FirstOrDefault()?.Vote;
             gameData.MafiaTarget = mafiaGame.Mafias.FirstOrDefault()?.Target;
             gameData.DoctorTarget = mafiaGame.Doctors.FirstOrDefault()?.Target;
+            gameData.DetectiveTarget = mafiaGame.Detectives.FirstOrDefault()?.Target;
             gameData.CurrentState = mafiaGame.CurrentState;
 
             return gameData;

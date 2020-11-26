@@ -62,7 +62,7 @@ namespace Microsoft.BotBuilderSamples
         protected override Task OnConversationUpdateActivityAsync(ITurnContext<IConversationUpdateActivity> turnContext, CancellationToken cancellationToken)
         {
             AddConversationReference(turnContext.Activity as Activity);
-            Logger.LogInformation("-----ConverSation ADD. Id: {0}, name: {1}, conversaton: {2} -----\n",
+            Logger.LogInformation("-----Conversation ADD. Id: {0}, Name: {1}, Conversation: {2} -----\n",
                 turnContext.Activity.From.Id, turnContext.Activity.From.Name, Tuple.Create(turnContext.Activity.Conversation.Name, turnContext.Activity.Conversation.Id));
 
             return base.OnConversationUpdateActivityAsync(turnContext, cancellationToken);
@@ -97,12 +97,28 @@ namespace Microsoft.BotBuilderSamples
                         convInfo.MafiaTarget = (string)(activityValue as JObject)["kill_choice"];
                     else if (activityValue.ToString().Contains("doctor_choice"))
                         convInfo.DoctorTarget = (string)(activityValue as JObject)["doctor_choice"];
+                    else if (activityValue.ToString().Contains("inspect_choice"))
+                        convInfo.DetectiveTarget = (string)(activityValue as JObject)["inspect_choice"];
 
                     List<string> activeDoctorIdList = convInfo.RoleToUsers.GetValueOrDefault(Role.Doctor.ToString(), new List<string>());
                     activeDoctorIdList = activeDoctorIdList.Where(id => convInfo.ActivePlayers.Contains(id)).ToList();
-                    // If doctor is dead
-                    if (activeDoctorIdList.Any())
+
+                    List<string> activeDetectiveIdList = convInfo.RoleToUsers.GetValueOrDefault(Role.Detective.ToString(), new List<string>());
+                    activeDetectiveIdList = activeDetectiveIdList.Where(id => convInfo.ActivePlayers.Contains(id)).ToList();
+
+                    if (activeDoctorIdList.Any() && activeDetectiveIdList.Any())
+                    {
+                        isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null && convInfo.DoctorTarget != null && convInfo.DetectiveTarget != null);
+                    }
+                    else if (activeDetectiveIdList.Any())
+                    {
+                        isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null && convInfo.DetectiveTarget != null);
+                    }
+                    else if (activeDoctorIdList.Any())
+                    {
                         isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null && convInfo.DoctorTarget != null);
+                    }
+                    // If doctor and detective are dead
                     else
                     {
                         isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null);
@@ -117,8 +133,8 @@ namespace Microsoft.BotBuilderSamples
                 }
                 else
                 {
-                    Logger.LogInformation("===========Converation Data. mafia target: {0}, doctor target: {1} ======\n",
-                        convInfo.MafiaTarget, convInfo.DoctorTarget);
+                    Logger.LogInformation("===========Converation Data. mafia target: {0}, doctor target: {1}, detective target: {2} ======\n",
+                        convInfo.MafiaTarget, convInfo.DoctorTarget, convInfo.DetectiveTarget);
                     await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>(nameof(DialogState)), cancellationToken);
                 }
             }
@@ -149,9 +165,23 @@ namespace Microsoft.BotBuilderSamples
             bool isNightChoiceIncomplete = convInfo.CurrentState == GameState.Night;
             List<string> activeDoctorIdList = convInfo.RoleToUsers.GetValueOrDefault(Role.Doctor.ToString(), new List<string>());
             activeDoctorIdList = activeDoctorIdList.Where(id => convInfo.ActivePlayers.Contains(id)).ToList();
-            // If doctor is dead
-            if (activeDoctorIdList.Any())
+
+            List<string> activeDetectiveIdList = convInfo.RoleToUsers.GetValueOrDefault(Role.Detective.ToString(), new List<string>());
+            activeDetectiveIdList = activeDetectiveIdList.Where(id => convInfo.ActivePlayers.Contains(id)).ToList();
+
+            if (activeDoctorIdList.Any() && activeDetectiveIdList.Any())
+            {
+                isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null && convInfo.DoctorTarget != null && convInfo.DetectiveTarget != null);
+            }
+            else if (activeDetectiveIdList.Any())
+            {
+                isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null && convInfo.DetectiveTarget != null);
+            }
+            else if (activeDoctorIdList.Any())
+            {
                 isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null && convInfo.DoctorTarget != null);
+            }
+            // If doctor and detective are dead
             else
             {
                 isNightChoiceIncomplete &= !(convInfo.MafiaTarget != null);
@@ -209,6 +239,7 @@ namespace Microsoft.BotBuilderSamples
             if (!userInfo.IsActive && convInfo.IsGameStarted)
             {
                 await turnContext.SendActivityAsync("❗ Sorry, you are dead. Please try not doing any operation.");
+                await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>(nameof(DialogState)), cancellationToken);
             }
             // else if (isMissChose)
             // {

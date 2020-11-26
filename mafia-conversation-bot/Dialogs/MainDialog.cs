@@ -64,7 +64,7 @@ namespace Microsoft.BotBuilderSamples
                 return await stepContext.NextAsync(null, cancellationToken);
             }
 
-            string[] options = new string[] { "New Game: Villager + Doctor + Mafia", "Not Interested" };
+            string[] options = new string[] { "New Game: Detective + Doctor + Mafia", "Not Interested" };
             var message = @"Hello, we are a Teams Chat Bot for playing Magia Game, designed and developed by DRAMA team.
                 If you are interested in playing with our App, please select one of the role patterns to start a new game.
                 ";
@@ -93,7 +93,7 @@ namespace Microsoft.BotBuilderSamples
             }
 
             var result = (FoundChoice)stepContext.Result;
-            Logger.LogInformation("what is th result : " + result);
+            Logger.LogInformation("What is the result : " + result);
             if (result.Value == "Not Interested")
             {
                 await stepContext.Context.SendActivityAsync("Alright. Hope to see you next time.");

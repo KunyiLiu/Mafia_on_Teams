@@ -36,6 +36,7 @@ namespace Microsoft.BotBuilderSamples
         static string AdaptivePromptId = "adaptive";
         private const string KillChoice = "kill_choice";
         private const string DoctorChoice = "doctor_choice";
+        private const string DetectiveChoice = "inspect_choice";
         private const string VoteChoice = "vote_choice";
 
         private readonly ConversationState _conversationState;
@@ -78,12 +79,13 @@ namespace Microsoft.BotBuilderSamples
             var _gameData = stepContext.Options as ConversationData ?? new ConversationData();
             stepContext.Values[currentGame] = _gameData;  
 
-            if (_gameData.MafiaTarget != null || _gameData.DoctorTarget != null)
+            if (_gameData.MafiaTarget != null || _gameData.DoctorTarget != null || _gameData.DetectiveTarget != null)
             {
                 var stepContextResult = new JObject
                     (
                     new JProperty("kill_choice", _gameData.MafiaTarget),
-                    new JProperty("doctor_choice", _gameData.DoctorTarget)
+                    new JProperty("doctor_choice", _gameData.DoctorTarget),
+                    new JProperty(DetectiveChoice, _gameData.DetectiveTarget)
                     );
                 return await stepContext.NextAsync(stepContextResult, cancellationToken);
             }
@@ -107,6 +109,7 @@ namespace Microsoft.BotBuilderSamples
             // Continue using the same selection list, if any, from the previous iteration of this dialog.
             string kill_choice;
             string doctor_choice;
+            string detective_choice;
             var convStateAccessor = _conversationState.CreateProperty<ConversationData>(nameof(ConversationData));
             var convInfo = await convStateAccessor.GetAsync(stepContext.Context, () => new ConversationData());
 
@@ -114,27 +117,34 @@ namespace Microsoft.BotBuilderSamples
             {
                 kill_choice = (string)(stepContext.Result as JObject)[KillChoice];
                 doctor_choice = (string)(stepContext.Result as JObject)[DoctorChoice];
+                detective_choice = (string)(stepContext.Result as JObject)[DetectiveChoice];
             }
             else
             {
                 kill_choice = convInfo.MafiaTarget;
                 doctor_choice = convInfo.DoctorTarget;
-
+                detective_choice = convInfo.DetectiveTarget;
             }
             // if (choice == null) return await stepContext.NextAsync(null, cancellationToken);
 
             // await stepContext.Context.SendActivityAsync("You decided to kill " + choice);
             var _gameData = stepContext.Values[currentGame] as ConversationData;
             var mafiaGame = new Game(_gameData.UserProfileMap, _gameData.RoleToUsers, _gameData.ActivePlayers,
-                _gameData.MafiaTarget, _gameData.DoctorTarget, _gameData.VoteTarget, _gameData.CurrentState);
+                _gameData.MafiaTarget, _gameData.DoctorTarget, _gameData.DetectiveTarget, _gameData.VoteTarget, _gameData.CurrentState);
             mafiaGame.AssignTargetToPlayers(kill_choice, Role.Mafia);
             mafiaGame.AssignTargetToPlayers(doctor_choice, Role.Doctor);
+            mafiaGame.AssignTargetToPlayers(detective_choice, Role.Detective);
             mafiaGame.ExecuteNightPhase();
+
+            HashSet<Detective> detectives = mafiaGame.Detectives;
+            List<Detective> aliveDetectives = detectives.Where(a => _gameData.ActivePlayers.Contains(a.Id)).ToList();
+            await SendDetectiveResponses(stepContext.Context, _gameData, cancellationToken, aliveDetectives);
 
             _gameData = DialogHelper.ConvertConversationState(mafiaGame);
             // clean up and save the latest gameData to ConversationState
             _gameData.MafiaTarget = null;
             _gameData.DoctorTarget = null;
+            _gameData.DetectiveTarget = null;
             stepContext.Values[currentGame] = _gameData;
             await convStateAccessor.SetAsync(stepContext.Context, _gameData, cancellationToken);
 
@@ -189,7 +199,7 @@ namespace Microsoft.BotBuilderSamples
 
             var _gameData = stepContext.Values[currentGame] as ConversationData;
             var mafiaGame = new Game(_gameData.UserProfileMap, _gameData.RoleToUsers, _gameData.ActivePlayers,
-                _gameData.MafiaTarget, _gameData.DoctorTarget, _gameData.VoteTarget, _gameData.CurrentState);
+                _gameData.MafiaTarget, _gameData.DoctorTarget, _gameData.DetectiveTarget, _gameData.VoteTarget, _gameData.CurrentState);
             var choiceName = choice != null && mafiaGame.PlayerMapping.ContainsKey(choice) ?
                 mafiaGame.PlayerMapping[choice].Name :
                 "no one";
@@ -237,6 +247,64 @@ namespace Microsoft.BotBuilderSamples
             return dict.Where(pair => pair.Value == "Mafia").Count();
         }
 
+        private async Task SendDetectiveResponses(ITurnContext context, ConversationData gameData, CancellationToken cancellationToken, List<Detective> activeDetectives)
+        {
+            if (activeDetectives == null || activeDetectives.Count == 0)
+            {
+                return;
+            }
+
+            List<TeamsChannelAccount> members = await DialogHelper.GetPagedMembers(context, cancellationToken);
+
+            var teamsChannelId = context.Activity.TeamsGetChannelId();
+            teamsChannelId ??= "msteams";
+            var serviceUrl = context.Activity.ServiceUrl;
+            var credentials = new MicrosoftAppCredentials(_appId, _appPassword);
+
+            gameData.RoleToUsers.TryGetValue(Role.Detective.ToString(), out List<string> activeDetectiveIds);
+
+            foreach (TeamsChannelAccount member in members)
+            {
+                foreach (Detective detective in activeDetectives)
+                {
+                    if (detective.Id == member.Id)
+                    {
+                        string message = $"The team member you inspected is a <b>{detective.TargetRole}</b>.";
+
+                        var conversationParameters = new ConversationParameters
+                        {
+                            IsGroup = false,
+                            Bot = context.Activity.Recipient,
+                            Members = new ChannelAccount[] { member },
+                            TenantId = context.Activity.Conversation.TenantId,
+                        };
+
+                        Task conv = ((BotFrameworkAdapter)context.Adapter).CreateConversationAsync(
+                            teamsChannelId,
+                            serviceUrl,
+                            credentials,
+                            conversationParameters,
+                            async (t1, c1) =>
+                            {
+                                ConversationReference conversationReference = t1.Activity.GetConversationReference();
+
+                                await ((BotFrameworkAdapter)context.Adapter).ContinueConversationAsync(
+                                    _appId,
+                                    conversationReference,
+                                    async (t2, c2) =>
+                                    {
+                                        await t2.SendActivityAsync(message);
+                                    },
+                                    cancellationToken);
+                            },
+                            cancellationToken);
+
+                        conv.Wait();
+                    }
+                }
+            }
+        }
+
         private async Task<DialogTurnResult> PromptWithAdaptiveCardAsync(
             WaterfallStepContext stepContext,
             ConversationData gameData,
@@ -253,13 +321,19 @@ namespace Microsoft.BotBuilderSamples
                 var sendBackData = new Dictionary<string, string> { { "SendbackTo", currectRef.Conversation.Id } };
                 var mcardAttachment = MakeAdaptiveCard("Who you want to kill? For Mafia only", KillChoice, choices, sendBackData);
                 var dcardAttachment = MakeAdaptiveCard("Who you want to heal? For Doctor only", DoctorChoice, choices, sendBackData);
+                var detcardAttachment = MakeAdaptiveCard("Who you want to inspect? For Detective only", DetectiveChoice, choices, sendBackData);
 
                 List<TeamsChannelAccount> members = await DialogHelper.GetPagedMembers(stepContext.Context, cancellationToken);
-                gameData.RoleToUsers.TryGetValue(Role.Mafia.ToString(), out List<string> activeMafiaIds);
-                gameData.RoleToUsers.TryGetValue(Role.Doctor.ToString(), out List<string> activeDoctorIds);
+                var activeMafiaIds = gameData.RoleToUsers.GetValueOrDefault(Role.Mafia.ToString(), new List<string>());
+                activeMafiaIds = activeMafiaIds.Where(id => gameData.ActivePlayers.Contains(id)).ToList();
+                var activeDoctorIds = gameData.RoleToUsers.GetValueOrDefault(Role.Doctor.ToString(), new List<string>());
+                activeDoctorIds = activeDoctorIds.Where(id => gameData.ActivePlayers.Contains(id)).ToList();
+                var activeDetectiveIds = gameData.RoleToUsers.GetValueOrDefault(Role.Detective.ToString(), new List<string>());
+                activeDetectiveIds = activeDetectiveIds.Where(id => gameData.ActivePlayers.Contains(id)).ToList();
 
                 var mafias = new List<TeamsChannelAccount>();
                 var doctors = new List<TeamsChannelAccount>();
+                var detectives = new List<TeamsChannelAccount>();
                 foreach (var member in members)
                 {
                     if (activeMafiaIds != null && activeMafiaIds.Contains(member.Id))
@@ -267,11 +341,18 @@ namespace Microsoft.BotBuilderSamples
                         mafias.Add(member);
                     }
                     else if (activeDoctorIds != null && activeDoctorIds.Contains(member.Id))
+                    {
                         doctors.Add(member);
+                    }
+                    else if (activeDetectiveIds != null && activeDetectiveIds.Contains(member.Id))
+                    {
+                        detectives.Add(member);
+                    }
                 }
                 // await stepContext.Context.SendActivityAsync(MessageFactory.Attachment(mcardAttachment), cancellationToken);
                 await SendtProactiveMsgAsync(stepContext.Context, mafias, mcardAttachment, cancellationToken);
                 await SendtProactiveMsgAsync(stepContext.Context, doctors, dcardAttachment, cancellationToken);
+                await SendtProactiveMsgAsync(stepContext.Context, detectives, detcardAttachment, cancellationToken);
 
                 return new DialogTurnResult(DialogTurnStatus.Waiting);
             }
